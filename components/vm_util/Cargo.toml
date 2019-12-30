@@ -1,0 +1,10 @@
+[package]
+name = "vm_util"
+version = "0.1.0"
+authors = ["Maxim Molchanov <m.molchanov@vonmo.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+hashbrown = { version = "0.5.0", features = ["serde"] }
+indexmap = { version = "1.0.2", features = ["serde-1"] }

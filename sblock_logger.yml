@@ -1,0 +1,47 @@
+# Scan this file for changes every 30 seconds
+refresh_rate: 30 seconds
+
+appenders:
+  # An appender named "stdout" that writes to stdout
+  stdout:
+    kind: console
+    encoder:
+      pattern: "{d}\t[{l}]\t{t}:{line}\t{m}{n}"
+
+  console:
+    kind: file
+    path: "info/log/console.log"
+    encoder:
+      pattern: "{d} [{l}] {t}:{line} {m}{n}"
+
+  # An appender named "requests" that writes to a file with a custom pattern encoder
+  requests:
+    kind: file
+    path: "info/log/requests.log"
+    encoder:
+      pattern: "{d} - {m}{n}"
+
+# Set the default logging level to "warn" and attach the "stdout" appender to the root
+root:
+  level: info
+  appenders:
+    - stdout
+    - console
+
+loggers:
+  app:
+    level: debug
+
+  rocket::rocket:
+    level: error
+    appenders:
+      - stdout
+      - console
+
+  # Route log events sent to the "app::requests" logger to the "requests" appender,
+  # and *not* the normal appenders installed at the root
+  app::requests:
+    level: info
+    appenders:
+      - requests
+    additive: false
