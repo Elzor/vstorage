@@ -6,3 +6,4 @@ pub mod api;
 pub mod meta;
 pub mod status;
 pub mod disk;
+pub mod gc;

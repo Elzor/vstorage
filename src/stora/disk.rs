@@ -1,11 +1,13 @@
-use crate::stora::volume::Volume;
-use std::sync::RwLock;
-use vm_util::collections::HashMap;
-use uuid::Uuid;
-use std::path::Path;
 use std::fs::File;
 use std::io::prelude::*;
+use std::path::Path;
+use std::sync::RwLock;
+
+use uuid::Uuid;
+use vm_util::collections::HashMap;
+
 use crate::stora::meta::BlockMeta;
+use crate::stora::volume::Volume;
 
 lazy_static! {
     pub static ref DISK: RwLock<Disk> = RwLock::new(Disk::new());
@@ -28,6 +30,7 @@ impl Disk {
             volumes_mapping: HashMap::new(),
         }
     }
+
     pub fn init_volumes(&mut self, volumes: Vec<Volume>) {
         self.volumes = volumes;
         for (idx, v) in self.volumes.iter().enumerate() {
@@ -86,6 +89,31 @@ impl Disk {
 
         Ok(true)
     }
+
+    pub fn delete_object(&mut self, volume_id: &String, bucket_id: u32, deleted_bytes: u64) -> Result<(), ()> {
+        let vi = self.volumes_mapping.get(volume_id).unwrap().to_owned();
+        let v = self.volumes.get_mut(vi).unwrap();
+        v.cnt_objects -= 1;
+
+        let bi = v.buckets_mapping.get(&bucket_id).unwrap().to_owned();
+        let b = v.buckets.get_mut(bi).unwrap();
+        b.cnt_blocks -= 1;
+        b.gc_size_bytes += deleted_bytes;
+
+        Ok(())
+    }
+
+    pub fn purge_object(&mut self, volume_id: &String, bucket_id: u32, deleted_bytes: u64) -> Result<(), ()> {
+        let vi = self.volumes_mapping.get(volume_id).unwrap().to_owned();
+        let v = self.volumes.get_mut(vi).unwrap();
+
+        let bi = v.buckets_mapping.get(&bucket_id).unwrap().to_owned();
+        let b = v.buckets.get_mut(bi).unwrap();
+        b.gc_size_bytes -= deleted_bytes;
+        b.avail_size_bytes += deleted_bytes;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -141,6 +169,44 @@ pub fn read_block(path: &String) -> Result<Vec<u8>, String> {
                 Err(why) => Err(why.to_string()),
                 Ok(_) => Ok(payload),
             }
+        }
+    }
+}
+
+pub fn mark_block_as_deleted(meta: BlockMeta) -> Result<(), ()> {
+    let volume_id = meta.volume_id.to_owned();
+    let bucket_id = meta.bucket_id.to_owned();
+    let object_size = meta.size.to_owned();
+    if let Err(_) = meta.delete() {
+        error!("can't mark block as deleted");
+        return Err(());
+    }
+    if let Err(_) = DISK.write().unwrap().delete_object(&volume_id, bucket_id, object_size) {
+        error!("can't delete object");
+        return Err(());
+    }
+    Ok(())
+}
+
+pub fn purge_block(meta: BlockMeta) -> Result<(), ()> {
+    let volume_id = meta.volume_id.to_owned();
+    let bucket_id = meta.bucket_id.to_owned();
+    let object_size = meta.size.to_owned();
+    match std::fs::remove_file(&meta.path) {
+        Ok(_) => {
+            if let Err(_) = meta.purge() {
+                error!("can't mark block as deleted");
+                return Err(());
+            }
+            if let Err(_) = DISK.write().unwrap().purge_object(&volume_id, bucket_id, object_size) {
+                error!("can't purge object");
+                return Err(());
+            }
+            Ok(())
+        }
+        Err(e) => {
+            error!("can't delete file: {}", e);
+            Err(())
         }
     }
 }

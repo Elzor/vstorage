@@ -12,6 +12,7 @@ pub struct Bucket {
     pub active_slots: u64,
     pub initial_size_bytes: u64,
     pub avail_size_bytes: u64,
+    pub gc_size_bytes: u64,
 }
 
 impl Bucket {
@@ -24,6 +25,7 @@ impl Bucket {
             active_slots: 0,
             initial_size_bytes: initial_size_bytes,
             avail_size_bytes: initial_size_bytes,
+            gc_size_bytes: 0,
         }
     }
 
@@ -36,6 +38,7 @@ impl Bucket {
             self.avail_size_bytes = bucket_meta.avail_size_bytes;
             self.initial_size_bytes = bucket_meta.init_size_bytes;
             self.active_slots = bucket_meta.active_slots;
+            self.gc_size_bytes = bucket_meta.gc_size_bytes;
         } else {
             let mut bm = BucketMeta::new();
             bm.init_size_bytes = self.initial_size_bytes;

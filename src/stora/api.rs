@@ -2,21 +2,20 @@ use std::convert::Infallible;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::RwLock;
 
-use hyper::{Body, Method, Request, Response, Server, StatusCode, HeaderMap};
+use bytes::Bytes;
+use chrono::prelude::*;
+use hyper::{Body, HeaderMap, Method, Request, Response, Server, StatusCode};
 use hyper::service::{make_service_fn, service_fn};
+use lz4_compress::{compress, decompress};
+use prometheus::{Counter, Encoder, HistogramVec, TextEncoder};
 use tokio::sync::mpsc::Sender;
 
 use crate::config::Config;
+use crate::stora::disk::{DISK, mark_block_as_deleted, read_block};
+use crate::stora::meta::{BlockMeta, Compression, HashFun};
+use crate::stora::meta::HashFun::{HGW128, HGW256, MD5, SHA128, SHA256};
 use crate::stora::status::Status;
-
-use prometheus::{Counter, Encoder, HistogramVec, TextEncoder};
-use crate::stora::meta::{BlockMeta, HashFun, Compression};
-use crate::stora::meta::HashFun::{HGW128, MD5, SHA128, SHA256, HGW256};
-use crate::stora::disk::{DISK, read_block};
-use chrono::prelude::*;
-use lz4_compress::{compress, decompress};
-use bytes::Bytes;
-
+use uuid::Uuid;
 
 lazy_static! {
     pub static ref CONFIG: RwLock<Option<Config>> = RwLock::new(None);
@@ -276,26 +275,39 @@ async fn block_api(req: Request<Body>) -> Result<Response<Body>, Infallible> {
             }
         }
         // -----------------------------------------------------------------------------------------
-//        (&Method::PUT, ("block", 1), _) | (&Method::POST, ("block", 1), _) => {
-//            // without id
-//            let mut b = BlockMeta::new();
-//            b.object_id = "39c902da-09b3-4eaf-a2b7-a3a34dbe8ce8".to_string();
-//            b.size = 1*1024*1024;
-//            b.orig_size = b.size;
-//            b.path = "/data1/1/fileid".to_string();
-//            b.last_check_ts = 99;
-//            b.id = "test".to_string();
-//            let b = b.encode();
-//            dbg!(BlockMeta::decode(b.unwrap()));
-//            Ok(Response::new(Body::from("put block")))
-//        }
-        // -----------------------------------------------------------------------------------------
-        (&Method::PUT, ("block", 2), _) | (&Method::POST, ("block", 2), _) => {
-            // with id
-            let block_id = tokens[1].to_string();
+        (&Method::PUT, ("block", argc), _) | (&Method::POST, ("block", argc), _) => {
+            let block_id = if argc > 1 {
+                // with id
+                tokens[1].to_string()
+            } else {
+                // without id
+                format!("{}", Uuid::new_v4().to_simple())
+            };
+
+            if payload_size(&req) > CONFIG.read().unwrap().clone().unwrap().storage.block_size_limit_bytes {
+                let mut res = Response::default();
+                *res.status_mut() = StatusCode::PAYLOAD_TOO_LARGE;
+
+                timer.observe_duration();
+                return Ok(res);
+            }
+
+            match req.method() {
+                &Method::PUT => {
+                    // check that block with this id is not exists
+                    if let Ok(true) = BlockMeta::exists(block_id.clone()) {
+                        let mut res = Response::default();
+                        *res.status_mut() = StatusCode::FOUND;
+
+                        timer.observe_duration();
+                        return Ok(res);
+                    }
+                }
+                _ => ()
+            }
 
             let mut b = BlockMeta::new();
-            b.id = block_id;
+            b.id = block_id.to_owned();
             b.object_id = object_id(&req);
             b.hash_fun = hash_fun(&req);
             b.hash = hash(&req);
@@ -356,7 +368,12 @@ async fn block_api(req: Request<Body>) -> Result<Response<Body>, Infallible> {
                     }
 
                     let mut res = Response::default();
-                    *res.status_mut() = StatusCode::NO_CONTENT;
+                    if argc > 1 {
+                        *res.status_mut()  = StatusCode::NO_CONTENT;
+                    }else{
+                        *res.status_mut()  = StatusCode::OK;
+                        *res.body_mut() = Body::from(block_id);
+                    };
 
                     timer.observe_duration();
                     Ok(res)
@@ -374,8 +391,24 @@ async fn block_api(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         // -----------------------------------------------------------------------------------------
         (&Method::DELETE, ("block", 2), _) => {
             let block_id = tokens[1].to_string();
-            dbg!(&block_id);
-            Ok(Response::new(Body::from("put block")))
+
+            match BlockMeta::get(block_id) {
+                Ok(Some(meta)) => {
+                    if let Err(_) = mark_block_as_deleted(meta) {
+                        error!("can't mark block as deleted")
+                    }
+                    let mut res = Response::default();
+                    *res.status_mut() = StatusCode::NO_CONTENT;
+                    timer.observe_duration();
+                    Ok(res)
+                }
+                _ => {
+                    let mut res = Response::default();
+                    *res.status_mut() = StatusCode::NOT_FOUND;
+                    timer.observe_duration();
+                    Ok(res)
+                }
+            }
         }
         // -----------------------------------------------------------------------------------------
         _ => {
@@ -402,10 +435,12 @@ impl BlockApi {
             status_channel: None,
         }
     }
+
     pub fn set_status_channel(mut self, ch: Sender<bool>) -> Self {
         self.status_channel = Some(ch);
         self
     }
+
     pub fn serve(self) {
         let endpoint = self.endpoint.to_owned();
         let ready_ch = self.status_channel;

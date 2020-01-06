@@ -6,6 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
+cfg-if="0.1.10"
 vm_util = { path = "components/vm_util" }
 clap="2.33.0"
 rustyline="5.0.4"

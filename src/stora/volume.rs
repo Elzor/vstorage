@@ -1,6 +1,12 @@
 use std::fs;
 use std::io;
-use std::os::linux::fs::MetadataExt;
+cfg_if::cfg_if! {
+    if #[cfg(target_os = "linux")] {
+        use std::os::linux::fs::MetadataExt;
+    } else {
+        use std::os::unix::fs::MetadataExt;
+    }
+}
 use std::path::Path;
 use std::process;
 
@@ -87,7 +93,7 @@ impl Volume {
             for b in &buckets {
                 self.cnt_objects += b.cnt_blocks;
             }
-        }else{
+        } else {
             let mut vm = VolumeMeta::new();
             vm.id = self.id.to_owned();
             vm.path = self.path.to_owned();
@@ -101,7 +107,6 @@ impl Volume {
         for (idx, b) in self.buckets.iter().enumerate() {
             self.buckets_mapping.insert(b.id, idx);
         }
-        self.cnt_objects = 0;
         Ok(true)
     }
     fn find_mount_point(&mut self) {
@@ -125,9 +130,16 @@ impl Volume {
         self.mountpoint = path
     }
 
+    #[cfg(target_os = "linux")]
     fn st_dev(&mut self, path: &String) -> io::Result<u64> {
         let meta = fs::metadata(path)?;
         Ok(meta.st_dev())
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn st_dev(&mut self, path: &String) -> io::Result<u64> {
+        let meta = fs::metadata(path)?;
+        Ok(meta.dev())
     }
 
     fn volume_cnt_buckets(&mut self, volume_total_size: u64, bucket_size_limit_bytes: u64) -> u32 {

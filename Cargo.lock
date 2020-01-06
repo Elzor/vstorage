@@ -1610,6 +1610,7 @@ name = "vstorage"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "cfg-if",
  "chrono",
  "clap",
  "dirs",

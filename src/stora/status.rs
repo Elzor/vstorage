@@ -2,11 +2,12 @@ use std::sync::RwLock;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use systemstat::{Platform, System};
+use systemstat::{Platform, System, CPULoad};
 use tokio::time;
 
 use crate::config::Config;
-use crate::stora::meta::{chunks_cnt, db_size, delete_queue_cnt, move_queue_cnt};
+use crate::stora::meta::{db_size};
+use crate::stora::disk::DISK;
 
 lazy_static! {
     pub static ref CONFIG: RwLock<Option<Config>> = RwLock::new(None);
@@ -23,11 +24,17 @@ pub fn set_config(config: &Config) {
     *p = Some(config.clone())
 }
 
+#[cfg(target_os = "linux")]
+fn iowait(cpu: CPULoad) -> f32 { cpu.platform.iowait }
+
+#[cfg(not(target_os = "linux"))]
+fn iowait(cpu: CPULoad) -> f32 { 0.0 }
+
 #[derive(Serialize, Deserialize)]
 pub struct Status {
     node: NodeStatus,
     meta: MetaStatus,
-    //    storage: StorageStatus,
+    storage: StorageStatus,
     cpu: CpuStatus,
     memory: MemoryStatus,
     la: LaStatus,
@@ -40,6 +47,7 @@ impl Status {
         Status {
             node: NodeStatus::get(),
             meta: MetaStatus::get(),
+            storage: StorageStatus::get(),
             cpu: CpuStatus::get(),
             memory: MemoryStatus::get(),
             la: LaStatus::get(),
@@ -73,31 +81,54 @@ impl NodeStatus {
 
 #[derive(Serialize, Deserialize)]
 pub struct MetaStatus {
-    chunks: u64,
-    delete_queue: u64,
-    move_queue: u64,
-    size_bytes: u64,
+    db_size: u64,
 }
 
 impl MetaStatus {
     pub fn get() -> MetaStatus {
         MetaStatus {
-            size_bytes: match db_size() {
+            db_size: match db_size() {
                 Some(s) => s,
                 None => 0
-            },
-            chunks: match chunks_cnt() {
-                Some(s) => s,
-                None => 0
-            },
-            delete_queue: match delete_queue_cnt() {
-                Some(s) => s,
-                None => 0
-            },
-            move_queue: match move_queue_cnt() {
-                Some(s) => s,
-                None => 0
-            },
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct StorageStatus {
+    objects: u64,
+    gc_bytes: u64,
+    move_bytes: u64,
+    init_bytes: u64,
+    avail_bytes: u64,
+    active_slots: u64,
+}
+
+impl StorageStatus {
+    pub fn get() -> StorageStatus {
+        let disk = DISK.read().unwrap();
+        let mut cnt_blocks: u64 = 0;
+        let mut active_slots: u64 = 0;
+        let mut initial_size: u64 = 0;
+        let mut available_size: u64 = 0;
+        let mut gc_size: u64 = 0;
+        for v in &disk.volumes {
+            for b in v.buckets.iter() {
+                cnt_blocks += b.cnt_blocks;
+                active_slots += b.active_slots;
+                initial_size += b.initial_size_bytes;
+                available_size += b.avail_size_bytes;
+                gc_size += b.gc_size_bytes;
+            }
+        }
+        StorageStatus {
+            objects: cnt_blocks,
+            gc_bytes: gc_size,
+            move_bytes: 0,
+            init_bytes: initial_size,
+            avail_bytes: available_size,
+            active_slots: active_slots,
         }
     }
 }
@@ -233,7 +264,7 @@ impl PhysStats {
                                 system: cpu.system,
                                 interrupt: cpu.interrupt,
                                 idle: cpu.idle,
-                                iowait: cpu.platform.iowait,
+                                iowait: iowait(cpu),
                             }
                         };
                     }

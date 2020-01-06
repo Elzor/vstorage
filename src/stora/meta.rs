@@ -2,7 +2,7 @@ extern crate walkdir;
 
 use std::sync::RwLock;
 
-use rocksdb::{DB, WriteBatch};
+use rocksdb::{DB, WriteBatch, IteratorMode};
 use walkdir::WalkDir;
 
 use crate::binutil::setup;
@@ -58,38 +58,6 @@ pub fn db_size() -> Option<u64> {
     DBSIZE.read().unwrap().to_owned()
 }
 
-pub fn chunks_cnt() -> Option<u64> {
-    get_stat("chunks_cnt".to_string())
-}
-
-pub fn delete_queue_cnt() -> Option<u64> {
-    get_stat("delete_queue".to_string())
-}
-
-pub fn move_queue_cnt() -> Option<u64> {
-    get_stat("move_queue".to_string())
-}
-
-fn get_stat(stat_id: String) -> Option<u64> {
-    let res = match METADB.read().unwrap().as_ref() {
-        Some(db) => {
-            let cf = db.cf_handle("stats").unwrap();
-            match db.get_cf(cf, stat_id.as_str()) {
-                Ok(None) => 0,
-                Ok(r) => {
-                    let mut buf = [0u8; 8];
-                    buf.copy_from_slice(r.unwrap().as_slice());
-                    u64::from_be_bytes(buf)
-                }
-                _ => 0
-            }
-        }
-        None => {
-            0
-        }
-    };
-    Some(res)
-}
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum HashFun {
@@ -198,6 +166,121 @@ impl BlockMeta {
                 Err(())
             }
         }
+    }
+
+    pub fn purge(self) -> Result<(), ()> {
+        match METADB.write().unwrap().as_ref() {
+            Some(db) => {
+                let buckets_cf = db.cf_handle("buckets").unwrap();
+                let delete_queue_cf = db.cf_handle("delete_queue").unwrap();
+
+                let bucket_db_id = BucketMeta::db_id(self.bucket_id, &self.volume_id);
+                let mut bucket = match db.get_cf(buckets_cf, bucket_db_id.as_str()) {
+                    Ok(None) => return Err(()),
+                    Ok(r) => {
+                        match BucketMeta::decode(r.unwrap()) {
+                            Ok(res) => {
+                                res
+                            }
+                            Err(e) => {
+                                error!("decode bucket meta: {}", e);
+                                return Err(())
+                            }
+                        }
+                    }
+                    _ => return Err(()),
+                };
+                bucket.gc_size_bytes -= self.size;
+                bucket.avail_size_bytes += self.size;
+
+                let mut batch = WriteBatch::default();
+                let _ = batch.delete_cf(delete_queue_cf, &self.id.as_str().to_owned());
+                let _ = batch.put_cf(
+                    buckets_cf, bucket_db_id.to_owned(), bucket.encode().unwrap(),
+                );
+
+                match db.write(batch) {
+                    Ok(_) => Ok(()),
+                    Err(_) => Err(())
+                }
+            }
+            None => {
+                Err(())
+            }
+        }
+    }
+
+    pub fn delete(self) -> Result<(), ()> {
+        match METADB.write().unwrap().as_ref() {
+            Some(db) => {
+                let blocks_cf = db.cf_handle("blocks").unwrap();
+                let buckets_cf = db.cf_handle("buckets").unwrap();
+                let delete_queue_cf = db.cf_handle("delete_queue").unwrap();
+
+                let bucket_db_id = BucketMeta::db_id(self.bucket_id, &self.volume_id);
+                let mut bucket = match db.get_cf(buckets_cf, bucket_db_id.as_str()) {
+                    Ok(None) => return Err(()),
+                    Ok(r) => {
+                        match BucketMeta::decode(r.unwrap()) {
+                            Ok(res) => {
+                                res
+                            }
+                            Err(e) => {
+                                error!("decode bucket meta: {}", e);
+                                return Err(())
+                            }
+                        }
+                    }
+                    _ => return Err(()),
+                };
+                bucket.cnt_blocks -= 1;
+                bucket.gc_size_bytes += self.size;
+
+                let mut batch = WriteBatch::default();
+                let _ = batch.delete_cf(blocks_cf, &self.id.as_str().to_owned());
+                let _ = batch.put_cf(
+                    buckets_cf, bucket_db_id.to_owned(), bucket.encode().unwrap(),
+                );
+                let _ = batch.put_cf(
+                    delete_queue_cf, &self.id.as_str().to_owned(), self.encode().unwrap(),
+                );
+
+                match db.write(batch) {
+                    Ok(_) => Ok(()),
+                    Err(_) => Err(())
+                }
+            }
+            None => {
+                Err(())
+            }
+        }
+    }
+
+    pub fn fetch_deleted(limit: u32) -> Result<Vec<BlockMeta>, Error> {
+        let mut res: Vec<BlockMeta> = vec![];
+        match METADB.read().unwrap().as_ref() {
+            Some(db) => {
+                let delete_queue_cf = db.cf_handle("delete_queue").unwrap();
+                let iterator = db.iterator_cf(delete_queue_cf, IteratorMode::Start).unwrap();
+                let raw = iterator.take(limit as usize).collect::<Vec<_>>();
+                for r in raw {
+                    match BlockMeta::decode(r.1.to_vec()) {
+                        Ok(bm) => {
+                            res.push(bm);
+                        }
+                        Err(e) => {
+                            error!("decode block meta: {}", e);
+                            return Err(e)
+                        }
+                    }
+                }
+                return Ok(res)
+            }
+            None => {
+                dbg!("here");
+            }
+        }
+        Ok(res)
     }
 
     pub fn get(block_id: String) -> Result<Option<BlockMeta>, Error> {
@@ -349,6 +432,7 @@ pub struct BucketMeta {
     pub active_slots: u64,
     pub init_size_bytes: u64,
     pub avail_size_bytes: u64,
+    pub gc_size_bytes: u64,
     pub ts: u64,
 }
 
@@ -359,6 +443,7 @@ impl BucketMeta {
             active_slots: 0,
             init_size_bytes: 0,
             avail_size_bytes: 0,
+            gc_size_bytes: 0,
             ts: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
         }
     }

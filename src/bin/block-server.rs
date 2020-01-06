@@ -5,14 +5,14 @@ use log::{info};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::mpsc::channel;
 
-use vblock::binutil::{self, cli_opts, setup};
-use vblock::config::Config;
-use vblock::stora::api::{BlockApi};
-use vblock::stora::status::{PhysStats};
+use vstorage::binutil::{self, cli_opts, setup};
+use vstorage::config::Config;
+use vstorage::stora::api::{BlockApi};
+use vstorage::stora::status::{PhysStats};
 
 #[tokio::main]
 async fn main() {
-    let matches = App::new("vm")
+    let matches = App::new("block-server")
         .about("Block storage chunk-handler. Powered by Vonmo")
         .author(crate_authors!())
         .version(crate_version!())
@@ -51,14 +51,15 @@ async fn main() {
     setup::init_logger(&config);
     setup::write_pidfile(&config);
 
-    vblock::stora::status::set_config(&config);
+    vstorage::stora::status::set_config(&config);
     PhysStats::new().calc();
 
-    vblock::stora::api::set_config(&config);
-    vblock::stora::meta::init_db(&config);
+    vstorage::stora::api::set_config(&config);
+    vstorage::stora::meta::init_db(&config);
 
     let volumes = setup::bootstrap_volumes(&config);
-    vblock::stora::disk::init_volumes(volumes);
+    vstorage::stora::disk::init_volumes(volumes);
+    vstorage::stora::gc::process(config.storage.gc_batch, config.storage.gc_timeout_sec);
     
     // internal handler
     let internal_endpoint = config.interfaces.internal.to_string();
@@ -73,6 +74,7 @@ async fn main() {
     BlockApi::new(&public_endpoint, &"public".to_string())
         .set_status_channel(txp)
         .serve();
+
     // init os signals handler
     tokio::spawn(async move {
         let mut stream_hup = signal(SignalKind::hangup()).unwrap();

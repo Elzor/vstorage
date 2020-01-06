@@ -50,7 +50,6 @@ pub fn init_metadb(config: &Config) -> DB {
     let _ = db.create_cf("blocks", &opts);
     let _ = db.create_cf("delete_queue", &opts);
     let _ = db.create_cf("move_queue", &opts);
-    let _ = db.create_cf("stats", &opts);
     db
 }
 

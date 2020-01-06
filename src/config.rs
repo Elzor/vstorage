@@ -19,14 +19,20 @@ pub struct Config {
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct Storage {
+    pub block_size_limit_bytes: u64,
     pub bucket_size_limit_bytes: u64,
     pub volumes: Vec<String>,
+    pub gc_timeout_sec: u32,
+    pub gc_batch:u32,
 }
 
 fn default_storage() -> Storage {
     Storage{
+        block_size_limit_bytes: 10*1024*1024,
         volumes: default_volumes(),
         bucket_size_limit_bytes: 1073741824,
+        gc_timeout_sec: 1,
+        gc_batch: 1000,
     }
 }
 
