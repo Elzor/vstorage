@@ -16,7 +16,12 @@ pub struct Bucket {
 }
 
 impl Bucket {
-    pub fn new(id: u32, volume_id: &String, bucket_path: &String, initial_size_bytes: u64) -> Bucket {
+    pub fn new(
+        id: u32,
+        volume_id: &String,
+        bucket_path: &String,
+        initial_size_bytes: u64,
+    ) -> Bucket {
         Bucket {
             id: id,
             volume_id: volume_id.to_owned(),
@@ -33,7 +38,8 @@ impl Bucket {
         if !fs::metadata(&self.path).is_ok() {
             fs::create_dir_all(&self.path).expect("can't create bucket directory");
         }
-        if let Ok(Some(bucket_meta)) = BucketMeta::get(BucketMeta::db_id(self.id, &self.volume_id)) {
+        if let Ok(Some(bucket_meta)) = BucketMeta::get(BucketMeta::db_id(self.id, &self.volume_id))
+        {
             self.cnt_blocks = bucket_meta.cnt_blocks;
             self.avail_size_bytes = bucket_meta.avail_size_bytes;
             self.initial_size_bytes = bucket_meta.init_size_bytes;

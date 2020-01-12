@@ -10,13 +10,12 @@ cfg_if::cfg_if! {
 use std::path::Path;
 use std::process;
 
+use super::systemstat::Filesystem;
+use crate::stora::bucket::Bucket;
+use crate::stora::meta::VolumeMeta;
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
-use crate::stora::bucket::Bucket;
-use super::systemstat::Filesystem;
-use crate::stora::meta::VolumeMeta;
 use std::collections::HashMap;
-
 
 #[derive(Debug, Clone)]
 pub struct Volume {
@@ -44,17 +43,17 @@ impl Volume {
         }
     }
 
-    pub fn bootstrap(&mut self, mounts: &Vec<Filesystem>, bucket_size_limit: u64) -> Result<bool, &str> {
+    pub fn bootstrap(
+        &mut self,
+        mounts: &Vec<Filesystem>,
+        bucket_size_limit: u64,
+    ) -> Result<bool, &str> {
         if !fs::metadata(&self.path).is_ok() {
             fs::create_dir_all(&self.path).expect("can't create volume");
         }
         self.path = match fs::canonicalize(&self.path) {
-            Ok(cpath) => {
-                cpath.as_path().to_str().unwrap().to_string()
-            }
-            Err(_x) => {
-                "".to_string()
-            }
+            Ok(cpath) => cpath.as_path().to_str().unwrap().to_string(),
+            Err(_x) => "".to_string(),
         };
 
         self.find_mount_point();
@@ -72,13 +71,9 @@ impl Volume {
                 info!("init {} buckets for volume {}", cnt, self.path);
                 for i in 1..cnt + 1 {
                     let bucket_path = format!("{}/{}", self.path, i);
-                    let mut bucket = Bucket::new(
-                        i, &self.id, &bucket_path, bucket_size_limit,
-                    );
+                    let mut bucket = Bucket::new(i, &self.id, &bucket_path, bucket_size_limit);
                     match bucket.bootstrap() {
-                        Ok(_) => {
-                            buckets.push(bucket)
-                        }
+                        Ok(_) => buckets.push(bucket),
                         Err(x) => {
                             error!("bucket init: {}", x);
                             process::exit(1)
@@ -111,16 +106,17 @@ impl Volume {
     }
     fn find_mount_point(&mut self) {
         let mut path = match Path::new(&self.path).parent() {
-            Some(parent) => {
-                parent.to_str().unwrap().to_string()
-            }
-            None => {
-                "".to_string()
-            }
+            Some(parent) => parent.to_str().unwrap().to_string(),
+            None => "".to_string(),
         };
         let orig_stdev = self.st_dev(&path.clone()).unwrap();
         while !&path.eq("/") {
-            let dir = Path::new(&path).parent().unwrap().to_str().unwrap().to_string();
+            let dir = Path::new(&path)
+                .parent()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
             let stdev = self.st_dev(&dir.clone()).unwrap();
             if stdev != orig_stdev {
                 break;

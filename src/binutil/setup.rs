@@ -2,25 +2,18 @@ use clap::ArgMatches;
 use vm_util::collections::HashMap;
 
 use crate::config::Config;
-use rocksdb::{DB, Options};
-use std::fs;
-use std::process;
-use std::io::Write;
-use systemstat::{Platform, System};
 use crate::stora::volume::Volume;
+use rocksdb::{Options, DB};
+use std::fs;
+use std::io::Write;
+use std::process;
+use systemstat::{Platform, System};
 
 pub fn init_logger(config: &Config) {
     let path = config.node.logger_config.to_owned();
-    match log4rs::init_file(
-        &path,
-        Default::default(),
-    ) {
-        Ok(_) => {
-            info!("logger is ready. config file: {}", &path)
-        }
-        Err(_x) => {
-            println!("[error] logger config file not found: {}", &path)
-        }
+    match log4rs::init_file(&path, Default::default()) {
+        Ok(_) => info!("logger is ready. config file: {}", &path),
+        Err(_x) => println!("[error] logger config file not found: {}", &path),
     }
 }
 
@@ -44,7 +37,8 @@ pub fn init_metadb(config: &Config) -> DB {
             warn!("metadb: {}", e);
             DB::open_default(&config.db.meta_db_path)
         }
-    }.expect("meta db issue");
+    }
+    .expect("meta db issue");
     let _ = db.create_cf("volumes", &opts);
     let _ = db.create_cf("buckets", &opts);
     let _ = db.create_cf("blocks", &opts);
@@ -58,7 +52,11 @@ pub fn write_pidfile(config: &Config) {
     let pid_file = config.node.pid_file.clone();
     let mut f = fs::File::create(&pid_file).expect("can't open pid file");
     let _ = f.write_all((process::id() as u32).to_string().as_bytes().clone());
-    info!("start server. pid {}, pidfile: {}", process::id(), &pid_file);
+    info!(
+        "start server. pid {}, pidfile: {}",
+        process::id(),
+        &pid_file
+    );
 }
 
 pub fn delete_pidfile(config: &Config) {
@@ -71,9 +69,7 @@ pub fn delete_pidfile(config: &Config) {
 pub fn bootstrap_volumes(config: &Config) -> Vec<Volume> {
     let sys = System::new();
     let mounts = match sys.mounts() {
-        Ok(mounts) => {
-            mounts
-        }
+        Ok(mounts) => mounts,
         Err(x) => {
             error!("fs mounts error: {}", x);
             process::exit(1)
@@ -86,9 +82,7 @@ pub fn bootstrap_volumes(config: &Config) -> Vec<Volume> {
     for volume_path in config.storage.volumes.iter() {
         let mut volume = Volume::new(volume_path);
         match volume.bootstrap(&mounts, config.storage.bucket_size_limit_bytes) {
-            Ok(_v) => {
-                volumes.push(volume)
-            }
+            Ok(_v) => volumes.push(volume),
             Err(x) => {
                 error!("volume init: {}", x);
                 process::exit(1)
@@ -110,21 +104,24 @@ pub fn bootstrap_volumes(config: &Config) -> Vec<Volume> {
 fn validate_volumes(volume: &Volume, volumes: &Vec<Volume>) -> Result<bool, String> {
     for v in volumes.iter() {
         if v.path != volume.path && v.dev == volume.dev {
-            return Err(format!("duplicated dev: {} in {} and {}", v.dev, v.path, volume.path));
+            return Err(format!(
+                "duplicated dev: {} in {} and {}",
+                v.dev, v.path, volume.path
+            ));
         }
     }
     Ok(true)
 }
 
 pub fn overwrite_config_with_cmd_args(_config: &mut Config, matches: &ArgMatches<'_>) {
-//    if let Some(addr) = matches.value_of("addr") {
-//        config.server.addr = addr.to_owned();
-//    }
-//
-//    if let Some(data_dir) = matches.value_of("data-dir") {
-//        config.storage.data_dir = data_dir.to_owned();
-//    }
-//
+    //    if let Some(addr) = matches.value_of("addr") {
+    //        config.server.addr = addr.to_owned();
+    //    }
+    //
+    //    if let Some(data_dir) = matches.value_of("data-dir") {
+    //        config.storage.data_dir = data_dir.to_owned();
+    //    }
+    //
     if let Some(tags_vec) = matches.values_of("tags") {
         let mut tags = HashMap::default();
         tags_vec
@@ -141,7 +138,7 @@ pub fn overwrite_config_with_cmd_args(_config: &mut Config, matches: &ArgMatches
                 tags.insert(key, value);
             })
             .count();
-//        config.tags = tags;
+        //        config.tags = tags;
     }
     info!("cli args applied")
 }

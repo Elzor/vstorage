@@ -15,6 +15,7 @@ class TestHttpApi:
         Sed mattis tellus leo. Donec at vestibulum erat. Ut a lobortis nisi. Nunc volutpat, velit a iaculis dignissim, nulla tellus porttitor justo, et lobortis orci lorem a urna. Donec sit amet vulputate neque, nec aliquam lorem. Curabitur non nisi enim. Vestibulum lectus nulla, suscipit quis pretium ac, feugiat vulputate ante. Morbi rutrum vestibulum mi. Fusce semper rutrum mauris. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Nam ut erat ac nibh lacinia gravida. Donec convallis, massa vel facilisis vehicula, elit tortor lacinia libero, sit amet varius nibh enim a lorem. Suspendisse tincidunt elementum justo.
         Aliquam scelerisque metus ante. Nulla tempus quam diam, in consequat ex semper ut. Integer viverra urna odio, quis mattis metus elementum ac. Nullam id leo non dui fermentum pulvinar vel eu massa. Nunc porta tempor turpis vel ultrices. In ac arcu eu dui gravida euismod. Aenean pellentesque maximus magna, eget facilisis nisi vestibulum eget. Praesent laoreet velit eget rhoncus ullamcorper. Nulla facilisi. Morbi aliquet quam ut egestas convallis. Ut vel lorem id neque ultrices tincidunt in.
     '''
+    random_payload = "\x00"+os.urandom(4*1024*1024)+"\x00"
 
     def test_index(self):
         r = requests.get(self.endpoint)
@@ -34,8 +35,7 @@ class TestHttpApi:
         assert 200 == r.status_code
         assert -1 != r.text.find("http_requests_total")
 
-    def test_put_get(self):
-        # payload = "\x00"+os.urandom(4*1024*1024)+"\x00"
+    def test_put_get_head(self):
         object_id = str(uuid.uuid4())
         url = self.endpoint + "/block/" + object_id
         r = requests.put(
@@ -49,6 +49,9 @@ class TestHttpApi:
             }
         )
         assert 204 == r.status_code
+
+        r = requests.head(url)
+        assert 302 == r.status_code
 
         r = requests.get(url)
         assert 200 == r.status_code
@@ -175,3 +178,12 @@ class TestHttpApi:
         )
         assert 200 == r.status_code
         assert 32 == len(r.text)
+
+    def test_write_4M(self):
+        object_url = self.endpoint + "/block/big"
+
+        r = requests.post(
+            object_url,
+            data=self.random_payload,
+        )
+        assert 204 == r.status_code

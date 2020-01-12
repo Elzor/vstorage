@@ -1,19 +1,19 @@
 extern crate walkdir;
 
+use std::fmt::Error;
 use std::sync::RwLock;
+use std::time::SystemTime;
 
-use rocksdb::{DB, WriteBatch, IteratorMode};
+use highway::{HighwayBuilder, HighwayHash, Key};
+use rmps::Serializer;
+use rocksdb::{IteratorMode, WriteBatch, DB};
+use serde::{Deserialize, Serialize};
+use tokio::time;
 use walkdir::WalkDir;
 
 use crate::binutil::setup;
 use crate::config::Config;
-use tokio::time;
-use std::fmt::Error;
-
-use serde::{Deserialize, Serialize};
-use rmps::Serializer;
-use std::time::SystemTime;
-use highway::{HighwayBuilder, HighwayHash, Key};
+use crate::metrics::META_DB_SIZE_GAUGE;
 
 #[derive(Debug)]
 pub struct Metainfo {}
@@ -45,6 +45,7 @@ pub fn init_db(config: &Config) {
                 .fold(0, |acc, m| acc + m.len());
             {
                 let mut p = DBSIZE.write().unwrap();
+                META_DB_SIZE_GAUGE.set(total_size as f64);
                 *p = Some(total_size);
             }
             info!("calculate meta_db size: done");
@@ -57,7 +58,6 @@ pub fn init_db(config: &Config) {
 pub fn db_size() -> Option<u64> {
     DBSIZE.read().unwrap().to_owned()
 }
-
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum HashFun {
@@ -93,7 +93,10 @@ pub struct BlockMeta {
 
 impl BlockMeta {
     pub fn new() -> BlockMeta {
-        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         BlockMeta {
             id: "".to_string(),
             object_id: "".to_string(),
@@ -111,14 +114,16 @@ impl BlockMeta {
         }
     }
 
+    #[inline]
     pub fn encode(self) -> Result<Vec<u8>, Error> {
         let mut buf: Vec<u8> = Vec::new();
         self.serialize(&mut Serializer::new(&mut buf)).unwrap();
-//        dbg!(buf.len());
-//        dbg!(buf.as_slice().iter().map(|&c| c as char).collect::<String>());
+        //        dbg!(buf.len());
+        //        dbg!(buf.as_slice().iter().map(|&c| c as char).collect::<String>());
         Ok(buf)
     }
 
+    #[inline]
     pub fn decode(payload: Vec<u8>) -> Result<BlockMeta, Error> {
         let r: BlockMeta = rmps::from_read_ref(&payload).unwrap();
         Ok(r)
@@ -133,17 +138,13 @@ impl BlockMeta {
                 let bucket_db_id = BucketMeta::db_id(self.bucket_id, &self.volume_id);
                 let mut bucket = match db.get_cf(buckets_cf, bucket_db_id.as_str()) {
                     Ok(None) => return Err(()),
-                    Ok(r) => {
-                        match BucketMeta::decode(r.unwrap()) {
-                            Ok(res) => {
-                                res
-                            }
-                            Err(e) => {
-                                error!("decode bucket meta: {}", e);
-                                return Err(())
-                            }
+                    Ok(r) => match BucketMeta::decode(r.unwrap()) {
+                        Ok(res) => res,
+                        Err(e) => {
+                            error!("decode bucket meta: {}", e);
+                            return Err(());
                         }
-                    }
+                    },
                     _ => return Err(()),
                 };
                 bucket.cnt_blocks += 1;
@@ -151,20 +152,22 @@ impl BlockMeta {
 
                 let mut batch = WriteBatch::default();
                 let _ = batch.put_cf(
-                    blocks_cf, &self.id.as_str().to_owned(), self.encode().unwrap(),
+                    blocks_cf,
+                    &self.id.as_str().to_owned(),
+                    self.encode().unwrap(),
                 );
                 let _ = batch.put_cf(
-                    buckets_cf, bucket_db_id.to_owned(), bucket.encode().unwrap(),
+                    buckets_cf,
+                    bucket_db_id.to_owned(),
+                    bucket.encode().unwrap(),
                 );
 
                 match db.write(batch) {
                     Ok(_) => Ok(()),
-                    Err(_) => Err(())
+                    Err(_) => Err(()),
                 }
             }
-            None => {
-                Err(())
-            }
+            None => Err(()),
         }
     }
 
@@ -177,17 +180,13 @@ impl BlockMeta {
                 let bucket_db_id = BucketMeta::db_id(self.bucket_id, &self.volume_id);
                 let mut bucket = match db.get_cf(buckets_cf, bucket_db_id.as_str()) {
                     Ok(None) => return Err(()),
-                    Ok(r) => {
-                        match BucketMeta::decode(r.unwrap()) {
-                            Ok(res) => {
-                                res
-                            }
-                            Err(e) => {
-                                error!("decode bucket meta: {}", e);
-                                return Err(())
-                            }
+                    Ok(r) => match BucketMeta::decode(r.unwrap()) {
+                        Ok(res) => res,
+                        Err(e) => {
+                            error!("decode bucket meta: {}", e);
+                            return Err(());
                         }
-                    }
+                    },
                     _ => return Err(()),
                 };
                 bucket.gc_size_bytes -= self.size;
@@ -196,17 +195,17 @@ impl BlockMeta {
                 let mut batch = WriteBatch::default();
                 let _ = batch.delete_cf(delete_queue_cf, &self.id.as_str().to_owned());
                 let _ = batch.put_cf(
-                    buckets_cf, bucket_db_id.to_owned(), bucket.encode().unwrap(),
+                    buckets_cf,
+                    bucket_db_id.to_owned(),
+                    bucket.encode().unwrap(),
                 );
 
                 match db.write(batch) {
                     Ok(_) => Ok(()),
-                    Err(_) => Err(())
+                    Err(_) => Err(()),
                 }
             }
-            None => {
-                Err(())
-            }
+            None => Err(()),
         }
     }
 
@@ -220,17 +219,13 @@ impl BlockMeta {
                 let bucket_db_id = BucketMeta::db_id(self.bucket_id, &self.volume_id);
                 let mut bucket = match db.get_cf(buckets_cf, bucket_db_id.as_str()) {
                     Ok(None) => return Err(()),
-                    Ok(r) => {
-                        match BucketMeta::decode(r.unwrap()) {
-                            Ok(res) => {
-                                res
-                            }
-                            Err(e) => {
-                                error!("decode bucket meta: {}", e);
-                                return Err(())
-                            }
+                    Ok(r) => match BucketMeta::decode(r.unwrap()) {
+                        Ok(res) => res,
+                        Err(e) => {
+                            error!("decode bucket meta: {}", e);
+                            return Err(());
                         }
-                    }
+                    },
                     _ => return Err(()),
                 };
                 bucket.cnt_blocks -= 1;
@@ -239,20 +234,22 @@ impl BlockMeta {
                 let mut batch = WriteBatch::default();
                 let _ = batch.delete_cf(blocks_cf, &self.id.as_str().to_owned());
                 let _ = batch.put_cf(
-                    buckets_cf, bucket_db_id.to_owned(), bucket.encode().unwrap(),
+                    buckets_cf,
+                    bucket_db_id.to_owned(),
+                    bucket.encode().unwrap(),
                 );
                 let _ = batch.put_cf(
-                    delete_queue_cf, &self.id.as_str().to_owned(), self.encode().unwrap(),
+                    delete_queue_cf,
+                    &self.id.as_str().to_owned(),
+                    self.encode().unwrap(),
                 );
 
                 match db.write(batch) {
                     Ok(_) => Ok(()),
-                    Err(_) => Err(())
+                    Err(_) => Err(()),
                 }
             }
-            None => {
-                Err(())
-            }
+            None => Err(()),
         }
     }
 
@@ -261,7 +258,9 @@ impl BlockMeta {
         match METADB.read().unwrap().as_ref() {
             Some(db) => {
                 let delete_queue_cf = db.cf_handle("delete_queue").unwrap();
-                let iterator = db.iterator_cf(delete_queue_cf, IteratorMode::Start).unwrap();
+                let iterator = db
+                    .iterator_cf(delete_queue_cf, IteratorMode::Start)
+                    .unwrap();
                 let raw = iterator.take(limit as usize).collect::<Vec<_>>();
                 for r in raw {
                     match BlockMeta::decode(r.1.to_vec()) {
@@ -270,11 +269,11 @@ impl BlockMeta {
                         }
                         Err(e) => {
                             error!("decode block meta: {}", e);
-                            return Err(e)
+                            return Err(e);
                         }
                     }
                 }
-                return Ok(res)
+                return Ok(res);
             }
             None => {
                 dbg!("here");
@@ -289,23 +288,17 @@ impl BlockMeta {
                 let cf = db.cf_handle("blocks").unwrap();
                 match db.get_cf(cf, block_id.as_str()) {
                     Ok(None) => Ok(None),
-                    Ok(r) => {
-                        match BlockMeta::decode(r.unwrap()) {
-                            Ok(res) => {
-                                Ok(Some(res))
-                            }
-                            Err(e) => {
-                                error!("decode block meta: {}", e);
-                                Err(e)
-                            }
+                    Ok(r) => match BlockMeta::decode(r.unwrap()) {
+                        Ok(res) => Ok(Some(res)),
+                        Err(e) => {
+                            error!("decode block meta: {}", e);
+                            Err(e)
                         }
-                    }
-                    _ => Ok(None)
+                    },
+                    _ => Ok(None),
                 }
             }
-            None => {
-                Ok(None)
-            }
+            None => Ok(None),
         }
     }
 
@@ -315,15 +308,11 @@ impl BlockMeta {
                 let cf = db.cf_handle("blocks").unwrap();
                 match db.get_cf(cf, block_id.as_str()) {
                     Ok(None) => Ok(false),
-                    Ok(_) => {
-                        Ok(true)
-                    }
-                    _ => Ok(false)
+                    Ok(_) => Ok(true),
+                    _ => Ok(false),
                 }
             }
-            None => {
-                Ok(false)
-            }
+            None => Ok(false),
         }
     }
 
@@ -353,16 +342,21 @@ impl VolumeMeta {
         VolumeMeta {
             id: "".to_string(),
             path: "".to_string(),
-            last_check_ts: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
+            last_check_ts: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
         }
     }
 
+    #[inline]
     pub fn encode(self) -> Result<Vec<u8>, Error> {
         let mut buf: Vec<u8> = Vec::new();
         self.serialize(&mut Serializer::new(&mut buf)).unwrap();
         Ok(buf)
     }
 
+    #[inline]
     pub fn decode(payload: Vec<u8>) -> Result<VolumeMeta, Error> {
         let r: VolumeMeta = rmps::from_read_ref(&payload).unwrap();
         Ok(r)
@@ -374,12 +368,10 @@ impl VolumeMeta {
                 let cf = db.cf_handle("volumes").unwrap();
                 match db.put_cf(cf, &self.id.as_str().to_owned(), self.encode().unwrap()) {
                     Ok(_) => Ok(()),
-                    Err(_) => Err(())
+                    Err(_) => Err(()),
                 }
             }
-            None => {
-                Err(())
-            }
+            None => Err(()),
         }
     }
 
@@ -389,23 +381,17 @@ impl VolumeMeta {
                 let cf = db.cf_handle("volumes").unwrap();
                 match db.get_cf(cf, volume_id.as_str()) {
                     Ok(None) => Ok(None),
-                    Ok(r) => {
-                        match VolumeMeta::decode(r.unwrap()) {
-                            Ok(res) => {
-                                Ok(Some(res))
-                            }
-                            Err(e) => {
-                                error!("decode volume meta: {}", e);
-                                Err(e)
-                            }
+                    Ok(r) => match VolumeMeta::decode(r.unwrap()) {
+                        Ok(res) => Ok(Some(res)),
+                        Err(e) => {
+                            error!("decode volume meta: {}", e);
+                            Err(e)
                         }
-                    }
-                    _ => Ok(None)
+                    },
+                    _ => Ok(None),
                 }
             }
-            None => {
-                Ok(None)
-            }
+            None => Ok(None),
         }
     }
 
@@ -416,12 +402,10 @@ impl VolumeMeta {
                 match db.get_cf(cf, volume_id.as_str()) {
                     Ok(None) => Ok(false),
                     Ok(_) => Ok(true),
-                    _ => Ok(false)
+                    _ => Ok(false),
                 }
             }
-            None => {
-                Ok(false)
-            }
+            None => Ok(false),
         }
     }
 }
@@ -444,10 +428,14 @@ impl BucketMeta {
             init_size_bytes: 0,
             avail_size_bytes: 0,
             gc_size_bytes: 0,
-            ts: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
+            ts: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
         }
     }
 
+    #[inline]
     pub fn db_id(id: u32, volume_id: &String) -> String {
         format!("{:05}-{}", id, &volume_id.to_owned())
     }
@@ -456,23 +444,27 @@ impl BucketMeta {
         match METADB.write().unwrap().as_ref() {
             Some(db) => {
                 let cf = db.cf_handle("buckets").unwrap();
-                match db.put_cf(cf, BucketMeta::db_id(id, &volume_id.to_owned()), self.encode().unwrap()) {
+                match db.put_cf(
+                    cf,
+                    BucketMeta::db_id(id, &volume_id.to_owned()),
+                    self.encode().unwrap(),
+                ) {
                     Ok(_) => Ok(()),
-                    Err(_) => Err(())
+                    Err(_) => Err(()),
                 }
             }
-            None => {
-                Err(())
-            }
+            None => Err(()),
         }
     }
 
+    #[inline]
     pub fn encode(self) -> Result<Vec<u8>, Error> {
         let mut buf: Vec<u8> = Vec::new();
         self.serialize(&mut Serializer::new(&mut buf)).unwrap();
         Ok(buf)
     }
 
+    #[inline]
     pub fn decode(payload: Vec<u8>) -> Result<BucketMeta, Error> {
         let r: BucketMeta = rmps::from_read_ref(&payload).unwrap();
         Ok(r)
@@ -484,23 +476,17 @@ impl BucketMeta {
                 let cf = db.cf_handle("buckets").unwrap();
                 match db.get_cf(cf, bucket_db_id.as_str()) {
                     Ok(None) => Ok(None),
-                    Ok(r) => {
-                        match BucketMeta::decode(r.unwrap()) {
-                            Ok(res) => {
-                                Ok(Some(res))
-                            }
-                            Err(e) => {
-                                error!("decode bucket meta: {}", e);
-                                Err(e)
-                            }
+                    Ok(r) => match BucketMeta::decode(r.unwrap()) {
+                        Ok(res) => Ok(Some(res)),
+                        Err(e) => {
+                            error!("decode bucket meta: {}", e);
+                            Err(e)
                         }
-                    }
-                    _ => Ok(None)
+                    },
+                    _ => Ok(None),
                 }
             }
-            None => {
-                Ok(None)
-            }
+            None => Ok(None),
         }
     }
 
@@ -511,12 +497,10 @@ impl BucketMeta {
                 match db.get_cf(cf, bucket_id.as_str()) {
                     Ok(None) => Ok(false),
                     Ok(_) => Ok(true),
-                    _ => Ok(false)
+                    _ => Ok(false),
                 }
             }
-            None => {
-                Ok(false)
-            }
+            None => Ok(false),
         }
     }
 }

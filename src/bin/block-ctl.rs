@@ -1,27 +1,25 @@
 extern crate clap;
 extern crate dirs;
 
-use clap::{crate_version, crate_name};
+use clap::{crate_name, crate_version};
 
 use std::borrow::Cow::{self, Borrowed, Owned};
 use std::fs;
 use std::io::Error as IoError;
 use std::process;
 
-use rustyline::{ColorMode, CompletionType, Config, Context, EditMode, Editor, Helper};
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
-use rustyline::config::{OutputStreamType};
+use rustyline::config::OutputStreamType;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use rustyline::hint::{Hinter, HistoryHinter};
+use rustyline::{ColorMode, CompletionType, Config, Context, EditMode, Editor, Helper};
 
 const APP_NAME: &str = "block_ctl";
 
 fn home_dir() -> String {
     match dirs::config_dir() {
-        Some(path) => {
-            path.display().to_string()
-        }
+        Some(path) => path.display().to_string(),
         None => {
             println!("WRN: Impossible to get your home dir!");
             "".to_string()
@@ -85,7 +83,11 @@ impl Highlighter for CtlHelper {
 impl Helper for CtlHelper {}
 
 fn show_welcome() {
-    println!("{} / v{}\n\nVshell (abort with ^C or ^D)", crate_name!(), crate_version!())
+    println!(
+        "{} / v{}\n\nVshell (abort with ^C or ^D)",
+        crate_name!(),
+        crate_version!()
+    )
 }
 
 fn main() {

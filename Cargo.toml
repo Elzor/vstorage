@@ -6,8 +6,8 @@ edition = "2018"
 publish = false
 
 [dependencies]
-cfg-if="0.1.10"
 vm_util = { path = "components/vm_util" }
+cfg-if="0.1.10"
 clap="2.33.0"
 rustyline="5.0.4"
 rust-crypto="0.2.36"
@@ -32,8 +32,13 @@ chrono="0.4.10"
 uuid = { version = "0.8", features = ["serde", "v4"] }
 highway = "0.3.0"
 lz4-compress = "0.1.1"
-bytes="0.5.3"
 http="0.2.0"
+
+tonic = {git = "https://github.com/hyperium/tonic", branch="master"}
+prost= {git = "https://github.com/danburkert/prost", branch="master"}
+
+[build-dependencies]
+tonic-build = {git = "https://github.com/hyperium/tonic", branch="master"}
 
 [[bin]]
 name = "block-server"

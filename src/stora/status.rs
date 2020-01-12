@@ -2,12 +2,14 @@ use std::sync::RwLock;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use systemstat::{Platform, System, CPULoad};
+use systemstat::{CPULoad, Platform, System};
 use tokio::time;
 
 use crate::config::Config;
-use crate::stora::meta::{db_size};
 use crate::stora::disk::DISK;
+use crate::stora::meta::db_size;
+
+use crate::metrics::{CPU_GAUGE, LA_GAUGE, MEMORY_GAUGE, NET_GAUGE, STORAGE_GAUGE, UPTIME_GAUGE};
 
 lazy_static! {
     pub static ref CONFIG: RwLock<Option<Config>> = RwLock::new(None);
@@ -25,10 +27,14 @@ pub fn set_config(config: &Config) {
 }
 
 #[cfg(target_os = "linux")]
-fn iowait(cpu: CPULoad) -> f32 { cpu.platform.iowait }
+fn iowait(cpu: CPULoad) -> f32 {
+    cpu.platform.iowait
+}
 
 #[cfg(not(target_os = "linux"))]
-fn iowait(cpu: CPULoad) -> f32 { 0.0 }
+fn iowait(cpu: CPULoad) -> f32 {
+    0.0
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Status {
@@ -73,8 +79,8 @@ impl NodeStatus {
             nodename: cfg.node.nodename,
             status: STATUS.read().unwrap().to_string(),
             zone: cfg.node.zone,
-            public_endpoint: cfg.interfaces.public,
-            internal_endpoint: cfg.interfaces.internal,
+            public_endpoint: cfg.interfaces.rest_public,
+            internal_endpoint: cfg.interfaces.rest_internal,
         }
     }
 }
@@ -89,13 +95,13 @@ impl MetaStatus {
         MetaStatus {
             db_size: match db_size() {
                 Some(s) => s,
-                None => 0
-            }
+                None => 0,
+            },
         }
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StorageStatus {
     objects: u64,
     gc_bytes: u64,
@@ -167,10 +173,7 @@ pub struct MemoryStatus {
 
 impl MemoryStatus {
     pub fn new() -> MemoryStatus {
-        MemoryStatus {
-            free: 0,
-            total: 0,
-        }
+        MemoryStatus { free: 0, total: 0 }
     }
     pub fn get() -> MemoryStatus {
         MEMORY.read().unwrap().to_owned()
@@ -205,10 +208,7 @@ pub struct UptimeStatus {
 
 impl UptimeStatus {
     pub fn new() -> UptimeStatus {
-        UptimeStatus {
-            host: 0,
-            node: 0,
-        }
+        UptimeStatus { host: 0, node: 0 }
     }
     pub fn get() -> UptimeStatus {
         UPTIME.read().unwrap().to_owned()
@@ -247,6 +247,39 @@ impl PhysStats {
     }
 
     pub fn calc(self) {
+        // storage
+        tokio::spawn(async {
+            let mut interval = time::interval(Duration::from_secs(60));
+            let mut short_interval = time::interval(Duration::from_millis(80));
+            loop {
+                let status = StorageStatus::get();
+
+                STORAGE_GAUGE
+                    .with_label_values(&["active_slots"])
+                    .set(status.active_slots as i64);
+                STORAGE_GAUGE
+                    .with_label_values(&["avail_bytes"])
+                    .set(status.avail_bytes as i64);
+                STORAGE_GAUGE
+                    .with_label_values(&["init_bytes"])
+                    .set(status.init_bytes as i64);
+                STORAGE_GAUGE
+                    .with_label_values(&["move_bytes"])
+                    .set(status.move_bytes as i64);
+                STORAGE_GAUGE
+                    .with_label_values(&["gc_bytes"])
+                    .set(status.gc_bytes as i64);
+                STORAGE_GAUGE
+                    .with_label_values(&["objects"])
+                    .set(status.objects as i64);
+
+                if status.objects == 0 && status.init_bytes == 0 {
+                    short_interval.tick().await;
+                } else {
+                    interval.tick().await;
+                }
+            }
+        });
         // cpu
         tokio::spawn(async {
             let mut interval = time::interval(Duration::from_secs(2));
@@ -257,6 +290,18 @@ impl PhysStats {
                         interval.tick().await;
                         let cpu = cpu.done().unwrap();
                         {
+                            CPU_GAUGE.with_label_values(&["user"]).set(cpu.user as f64);
+                            CPU_GAUGE.with_label_values(&["nice"]).set(cpu.nice as f64);
+                            CPU_GAUGE
+                                .with_label_values(&["system"])
+                                .set(cpu.system as f64);
+                            CPU_GAUGE
+                                .with_label_values(&["interrupt"])
+                                .set(cpu.interrupt as f64);
+                            CPU_GAUGE.with_label_values(&["idle"]).set(cpu.idle as f64);
+                            CPU_GAUGE
+                                .with_label_values(&["iowait"])
+                                .set(iowait(cpu.clone()) as f64);
                             let mut p = CPU.write().unwrap();
                             *p = CpuStatus {
                                 user: cpu.user,
@@ -282,6 +327,13 @@ impl PhysStats {
             loop {
                 match sys.memory() {
                     Ok(mem) => {
+                        MEMORY_GAUGE
+                            .with_label_values(&["free"])
+                            .set(mem.free.as_u64() as i64);
+                        MEMORY_GAUGE
+                            .with_label_values(&["total"])
+                            .set(mem.total.as_u64() as i64);
+
                         let mut p = MEMORY.write().unwrap();
                         *p = MemoryStatus {
                             free: mem.free.as_u64(),
@@ -302,6 +354,12 @@ impl PhysStats {
             loop {
                 match sys.load_average() {
                     Ok(la) => {
+                        LA_GAUGE.with_label_values(&["one"]).set(la.one as f64);
+                        LA_GAUGE.with_label_values(&["five"]).set(la.five as f64);
+                        LA_GAUGE
+                            .with_label_values(&["fifteen"])
+                            .set(la.fifteen as f64);
+
                         let mut p = LA.write().unwrap();
                         *p = LaStatus {
                             one: la.one,
@@ -328,6 +386,10 @@ impl PhysStats {
                             host: up.as_secs(),
                             node: (*p).node + 1,
                         };
+                        UPTIME_GAUGE
+                            .with_label_values(&["host"])
+                            .set(up.as_secs() as i64);
+                        UPTIME_GAUGE.with_label_values(&["node"]).set(p.node as i64);
                     }
                     _ => {
                         info!("can't calc la stat");
@@ -343,6 +405,22 @@ impl PhysStats {
             loop {
                 match sys.socket_stats() {
                     Ok(sock) => {
+                        NET_GAUGE
+                            .with_label_values(&["tcp_in_use"])
+                            .set(sock.tcp_sockets_in_use as i64);
+                        NET_GAUGE
+                            .with_label_values(&["tcp_orphaned"])
+                            .set(sock.tcp_sockets_orphaned as i64);
+                        NET_GAUGE
+                            .with_label_values(&["udp_in_use"])
+                            .set(sock.udp_sockets_in_use as i64);
+                        NET_GAUGE
+                            .with_label_values(&["tcp6_in_use"])
+                            .set(sock.tcp6_sockets_in_use as i64);
+                        NET_GAUGE
+                            .with_label_values(&["udp6_in_use"])
+                            .set(sock.udp6_sockets_in_use as i64);
+
                         let mut p = NET.write().unwrap();
                         *p = NetStatus {
                             tcp_in_use: sock.tcp_sockets_in_use,

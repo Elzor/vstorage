@@ -73,7 +73,11 @@ impl Disk {
     }
 
     pub fn release_write_slot(&mut self, slot: WriteSlot, written_bytes: u64) -> Result<bool, ()> {
-        let vi = self.volumes_mapping.get(&slot.volume_id).unwrap().to_owned();
+        let vi = self
+            .volumes_mapping
+            .get(&slot.volume_id)
+            .unwrap()
+            .to_owned();
         let v = self.volumes.get_mut(vi).unwrap();
         v.active_slots -= 1;
 
@@ -90,7 +94,12 @@ impl Disk {
         Ok(true)
     }
 
-    pub fn delete_object(&mut self, volume_id: &String, bucket_id: u32, deleted_bytes: u64) -> Result<(), ()> {
+    pub fn delete_object(
+        &mut self,
+        volume_id: &String,
+        bucket_id: u32,
+        deleted_bytes: u64,
+    ) -> Result<(), ()> {
         let vi = self.volumes_mapping.get(volume_id).unwrap().to_owned();
         let v = self.volumes.get_mut(vi).unwrap();
         v.cnt_objects -= 1;
@@ -103,7 +112,12 @@ impl Disk {
         Ok(())
     }
 
-    pub fn purge_object(&mut self, volume_id: &String, bucket_id: u32, deleted_bytes: u64) -> Result<(), ()> {
+    pub fn purge_object(
+        &mut self,
+        volume_id: &String,
+        bucket_id: u32,
+        deleted_bytes: u64,
+    ) -> Result<(), ()> {
         let vi = self.volumes_mapping.get(volume_id).unwrap().to_owned();
         let v = self.volumes.get_mut(vi).unwrap();
 
@@ -138,7 +152,11 @@ impl WriteSlot {
         }
     }
     pub fn release(self, written_bytes: u64) {
-        if let Err(_) = DISK.write().unwrap().release_write_slot(self, written_bytes) {
+        if let Err(_) = DISK
+            .write()
+            .unwrap()
+            .release_write_slot(self, written_bytes)
+        {
             error!("can't release write slot");
         }
     }
@@ -181,7 +199,11 @@ pub fn mark_block_as_deleted(meta: BlockMeta) -> Result<(), ()> {
         error!("can't mark block as deleted");
         return Err(());
     }
-    if let Err(_) = DISK.write().unwrap().delete_object(&volume_id, bucket_id, object_size) {
+    if let Err(_) = DISK
+        .write()
+        .unwrap()
+        .delete_object(&volume_id, bucket_id, object_size)
+    {
         error!("can't delete object");
         return Err(());
     }
@@ -198,7 +220,11 @@ pub fn purge_block(meta: BlockMeta) -> Result<(), ()> {
                 error!("can't mark block as deleted");
                 return Err(());
             }
-            if let Err(_) = DISK.write().unwrap().purge_object(&volume_id, bucket_id, object_size) {
+            if let Err(_) = DISK
+                .write()
+                .unwrap()
+                .purge_object(&volume_id, bucket_id, object_size)
+            {
                 error!("can't purge object");
                 return Err(());
             }

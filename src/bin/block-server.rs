@@ -1,14 +1,15 @@
 use std::process;
 
-use clap::{App, Arg, crate_authors, crate_version};
-use log::{info};
+use clap::{crate_authors, crate_version, App, Arg};
+use log::info;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::mpsc::channel;
 
+use vstorage::api::rest::BlockRestApi;
+use vstorage::api::rpc::BlockGrpcApi;
 use vstorage::binutil::{self, cli_opts, setup};
 use vstorage::config::Config;
-use vstorage::stora::api::{BlockApi};
-use vstorage::stora::status::{PhysStats};
+use vstorage::stora::status::PhysStats;
 
 #[tokio::main]
 async fn main() {
@@ -23,7 +24,7 @@ async fn main() {
                 .long("config")
                 .value_name("FILE")
                 .help("Set the configuration file")
-//                .default_value("vm.yml")
+                //                .default_value("vm.yml")
                 .takes_value(true),
         )
         .arg(
@@ -54,26 +55,37 @@ async fn main() {
     vstorage::stora::status::set_config(&config);
     PhysStats::new().calc();
 
-    vstorage::stora::api::set_config(&config);
+    vstorage::api::rest::set_config(&config);
     vstorage::stora::meta::init_db(&config);
 
     let volumes = setup::bootstrap_volumes(&config);
     vstorage::stora::disk::init_volumes(volumes);
     vstorage::stora::gc::process(config.storage.gc_batch, config.storage.gc_timeout_sec);
-    
-    // internal handler
-    let internal_endpoint = config.interfaces.internal.to_string();
-    let (txi, mut rxi) = channel(1);
-    BlockApi::new(&internal_endpoint, &"internal".to_string())
-        .set_status_channel(txi)
-        .serve();
+    vstorage::stora::validator::process(config.storage.block_check_interval_days, 300);
 
-    // public handler
-    let public_endpoint = config.interfaces.public.to_string();
+    // internal handlers
+    let rest_internal_endpoint = config.interfaces.rest_internal.to_string();
+    let (txi, mut rxi) = channel(1);
+    if !rest_internal_endpoint.eq("") {
+        BlockRestApi::new(&rest_internal_endpoint, &"internal".to_string())
+            .set_status_channel(txi)
+            .serve();
+    }
+
+    let grpc_internal_endpoint = config.interfaces.grpc_internal.to_string();
+    if !grpc_internal_endpoint.eq("") {
+        BlockGrpcApi::new(&grpc_internal_endpoint, &"internal".to_string())
+            .serve();
+    }
+
+    // public handlers
+    let rest_public_endpoint = config.interfaces.rest_public.to_string();
     let (txp, mut rxp) = channel(1);
-    BlockApi::new(&public_endpoint, &"public".to_string())
-        .set_status_channel(txp)
-        .serve();
+    if !rest_public_endpoint.eq("") {
+        BlockRestApi::new(&rest_public_endpoint, &"public".to_string())
+            .set_status_channel(txp)
+            .serve();
+    }
 
     // init os signals handler
     tokio::spawn(async move {
@@ -96,8 +108,12 @@ async fn main() {
         stream_interrupt.recv().await;
         info!("pid {} got INT signal", process::id());
         info!("wait to http graceful shutdown");
-        rxi.recv().await;
-        rxp.recv().await;
+        if !rest_internal_endpoint.eq("") {
+            rxi.recv().await;
+        }
+        if !rest_public_endpoint.eq("") {
+            rxp.recv().await;
+        }
         info!("exit with 130");
         process::exit(130)
     }
