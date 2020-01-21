@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::config::Config;
 use crate::metrics::{HTTP_BYTES_IN, HTTP_BYTES_OUT, HTTP_COUNTER, HTTP_REQ_HISTOGRAM};
 use crate::stora::disk::{mark_block_as_deleted, read_block, DISK};
-use crate::stora::meta::HashFun::{HGW128, HGW256, MD5, SHA128, SHA256};
+use crate::stora::meta::HashFun::{OTHER, HGW128, HGW256, MD5, SHA128, SHA256};
 use crate::stora::meta::{BlockMeta, Compression, HashFun};
 use crate::stora::status::Status;
 
@@ -55,12 +55,12 @@ async fn block_api(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         let hash_fun_header_name = "v-hash-fun";
         if req.headers().contains_key(hash_fun_header_name) {
             match req.headers().get(hash_fun_header_name).unwrap().as_bytes() {
-                b"0" => MD5,
-                b"1" => SHA128,
-                b"2" => SHA256,
-                b"3" => HGW128,
-                b"4" => HGW256,
-                _ => HGW128,
+                b"1" => MD5,
+                b"2" => SHA128,
+                b"3" => SHA256,
+                b"4" => HGW128,
+                b"5" => HGW256,
+                _ => OTHER,
             }
         } else {
             HGW128
@@ -308,14 +308,7 @@ async fn block_api(req: Request<Body>) -> Result<Response<Body>, Infallible> {
                 format!("{}", Uuid::new_v4().to_simple())
             };
 
-            if payload_size(&req)
-                > CONFIG
-                    .read()
-                    .unwrap()
-                    .clone()
-                    .unwrap()
-                    .storage
-                    .block_size_limit_bytes
+            if payload_size(&req) > CONFIG.read().unwrap().clone().unwrap().storage.block_size_limit_bytes
             {
                 let mut res = Response::default();
                 *res.status_mut() = StatusCode::PAYLOAD_TOO_LARGE;

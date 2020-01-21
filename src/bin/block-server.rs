@@ -56,6 +56,7 @@ async fn main() {
     PhysStats::new().calc();
 
     vstorage::api::rest::set_config(&config);
+    vstorage::api::rpc::set_config(&config);
     vstorage::stora::meta::init_db(&config);
 
     let volumes = setup::bootstrap_volumes(&config);
@@ -84,6 +85,12 @@ async fn main() {
     if !rest_public_endpoint.eq("") {
         BlockRestApi::new(&rest_public_endpoint, &"public".to_string())
             .set_status_channel(txp)
+            .serve();
+    }
+
+    let grpc_public_endpoint = config.interfaces.grpc_public.to_string();
+    if !grpc_public_endpoint.eq("") {
+        BlockGrpcApi::new(&grpc_public_endpoint, &"public".to_string())
             .serve();
     }
 

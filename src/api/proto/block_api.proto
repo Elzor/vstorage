@@ -1,0 +1,187 @@
+syntax = "proto3";
+
+package block_api;
+
+option optimize_for = SPEED;
+
+service BlockApi {
+    rpc Delete (DeleteRequest) returns (DeleteReply);
+    rpc Append (AppendRequest) returns (AppendReply);
+    rpc Upsert (UpsertRequest) returns (UpsertReply);
+    rpc Insert (InsertRequest) returns (InsertReply);
+    rpc Get (GetRequest) returns (GetReply);
+    rpc Exists (ExistsRequest) returns (ExistsReply);
+
+    rpc Idx (IdxRequest) returns (IdxReply);
+    rpc Status (StatusRequest) returns (StatusReply);
+}
+
+enum HashFun {
+    OTHER = 0;
+    MD5 = 1;
+    SHA128 = 2;
+    SHA256 = 3;
+    HGW128 = 4;
+    HGW256 = 5;
+}
+message Meta {
+    string content_type = 1;
+    string hash = 2;
+    HashFun hash_fun = 3;
+    string crc = 4;
+    uint64 size = 5;
+    uint64 created = 6;
+    uint64 last_check = 7;
+}
+
+message WriteOptions {
+    string content_type = 1;
+    bool compress = 2;
+    string hash = 3;
+    HashFun hash_fun = 4;
+}
+
+// Delete ---------------------------------------------------------------------
+message DeleteRequest {
+    string block_id = 1;
+    message Options {
+        bool direct = 1;
+    }
+    Options options = 2;
+}
+message DeleteReply {
+    string block_id = 2;
+}
+
+// Append ---------------------------------------------------------------------
+message AppendRequest {
+    string block_id = 1;
+    bytes payload = 2;
+    WriteOptions options = 3;
+}
+message AppendReply {
+    string block_id = 1;
+    string object_id = 2;
+    Meta meta = 3;
+}
+
+// Upsert ---------------------------------------------------------------------
+message UpsertRequest {
+    string block_id = 1;
+    string object_id = 2;
+    bytes payload = 3;
+    WriteOptions options = 4;
+}
+message UpsertReply {
+    string block_id = 1;
+    string object_id = 2;
+    Meta meta = 3;
+}
+
+// Insert ---------------------------------------------------------------------
+message InsertRequest {
+    string block_id = 1;
+    string object_id = 2;
+    bytes payload = 3;
+    WriteOptions options = 4;
+}
+message InsertReply {
+    string block_id = 1;
+    string object_id = 2;
+    Meta meta = 3;
+}
+
+// Get ------------------------------------------------------------------------
+message GetRequest {
+    string block_id = 1;
+    string crc = 2;
+    bool allow_compressed = 3;
+}
+message GetReply {
+    string block_id = 2;
+    string object_id = 3;
+    bytes payload = 4;
+    bool compressed = 5;
+    bool not_modified = 6;
+    Meta meta = 7;
+}
+
+// Exists ---------------------------------------------------------------------
+message ExistsRequest {
+    string block_id = 1;
+}
+message ExistsReply {
+    bool found = 1;
+}
+
+// Idx ------------------------------------------------------------------------
+message IdxRequest {
+}
+
+message IdxReply {
+    string message = 1;
+}
+
+// Status ---------------------------------------------------------------------
+message StatusRequest {
+}
+
+message StatusReply {
+    message Node {
+        string nodename = 1;
+        string status = 2;
+        string zone = 3;
+        string rest_public_endpoint = 4;
+        string rest_internal_endpoint = 5;
+        string grpc_public_endpoint = 6;
+        string grpc_internal_endpoint = 7;
+    }
+    message Meta {
+        uint64 db_size = 1;
+    }
+    message Storage {
+        uint64 objects = 1;
+        uint64 gc_bytes = 2;
+        uint64 move_bytes = 3;
+        uint64 init_bytes = 4;
+        uint64 avail_bytes = 5;
+        uint64 active_slots = 6;
+    }
+    message Cpu {
+        float user = 1;
+        float nice = 2;
+        float system = 3;
+        float interrupt = 4;
+        float idle = 5;
+        float iowait = 6;
+    }
+    message Memory {
+        uint64 free = 1;
+        uint64 total = 2;
+    }
+    message LA {
+        float one = 1;
+        float five = 2;
+        float fifteen = 3;
+    }
+    message Uptime {
+        uint64 host = 1;
+        uint64 node = 2;
+    }
+    message Net {
+        uint64 tcp_in_use = 1;
+        uint64 tcp_orphaned = 2;
+        uint64 udp_in_use = 3;
+        uint64 tcp6_in_use = 4;
+        uint64 udp6_in_use = 5;
+    }
+
+    Node node = 1;
+    Meta meta = 2;
+    Storage storage = 3;
+    Cpu cpu = 4;
+    Memory memory = 5;
+    LA la = 6;
+    Uptime uptime = 7;
+    Net net = 8;
+}

@@ -14,6 +14,10 @@ use walkdir::WalkDir;
 use crate::binutil::setup;
 use crate::config::Config;
 use crate::metrics::META_DB_SIZE_GAUGE;
+use std::fs::OpenOptions;
+use std::io::ErrorKind;
+use std::io::prelude::*;
+use crate::stora::disk::read_block;
 
 #[derive(Debug)]
 pub struct Metainfo {}
@@ -61,6 +65,7 @@ pub fn db_size() -> Option<u64> {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum HashFun {
+    OTHER,
     MD5,
     SHA128,
     SHA256,
@@ -80,6 +85,7 @@ pub struct BlockMeta {
     pub object_id: String,
     pub volume_id: String,
     pub bucket_id: u32,
+    pub content_type: String,
     pub hash_fun: HashFun,
     pub hash: String,
     pub crc: String,
@@ -102,6 +108,7 @@ impl BlockMeta {
             object_id: "".to_string(),
             volume_id: "".to_string(),
             bucket_id: 0,
+            content_type: "".to_string(),
             hash_fun: HashFun::HGW128,
             hash: "".to_string(),
             crc: "".to_string(),
@@ -299,6 +306,96 @@ impl BlockMeta {
                 }
             }
             None => Ok(None),
+        }
+    }
+
+    pub fn append(block_id: String, payload: Vec<u8>) -> Result<Option<BlockMeta>, std::io::Error> {
+        match METADB.write().unwrap().as_ref() {
+            Some(db) => {
+                let cf = db.cf_handle("blocks").unwrap();
+                match db.get_cf(cf, block_id.as_str()) {
+                    Ok(None) => {
+                        Err(std::io::Error::new(ErrorKind::NotFound, "object not found"))
+                    },
+                    Ok(r) => match BlockMeta::decode(r.unwrap()) {
+                        Ok(mut res) => {
+                            match OpenOptions::new().append(true).open(&res.path) {
+                                Err(why) => {
+                                    Err(why)
+                                }
+                                Ok(file) => {
+                                    let mut file = file;
+                                    match file.write_all(payload.as_slice()) {
+                                        Err(why) => {
+                                            Err(why)
+                                        },
+                                        Ok(_) => {
+                                            let body = match read_block(&res.path) {
+                                                Ok(content) => {
+                                                    content
+                                                }
+                                                Err(e) => {
+                                                    error!("can't read block: {}", e);
+                                                    return Err(std::io::Error::new(ErrorKind::Interrupted, "not written"));
+                                                }
+                                            };
+                                            let new_crc = BlockMeta::crc(body.clone());
+
+                                            res.size = body.len() as u64;
+                                            res.crc = new_crc;
+
+                                            let blocks_cf = db.cf_handle("blocks").unwrap();
+                                            let buckets_cf = db.cf_handle("buckets").unwrap();
+
+                                            let bucket_db_id = BucketMeta::db_id(res.bucket_id, &res.volume_id);
+                                            let mut bucket = match db.get_cf(buckets_cf, bucket_db_id.as_str()) {
+                                                Ok(None) => return Err(std::io::Error::new(ErrorKind::NotFound, "bucket not found")),
+                                                Ok(r) => match BucketMeta::decode(r.unwrap()) {
+                                                    Ok(res) => res,
+                                                    Err(_e) => {
+                                                        return Err(std::io::Error::new(ErrorKind::InvalidData, "bucket not found"));
+                                                    }
+                                                },
+                                                _ => {
+                                                    return Err(std::io::Error::new(ErrorKind::NotFound, "bucket not found"))
+                                                }
+                                            };
+                                            bucket.avail_size_bytes -= payload.len() as u64;
+
+                                            let mut batch = WriteBatch::default();
+                                            let res_meta = res.clone();
+                                            let _ = batch.put_cf(
+                                                blocks_cf,
+                                                &res.id.as_str().to_owned(),
+                                                res.encode().unwrap(),
+                                            );
+                                            let _ = batch.put_cf(
+                                                buckets_cf,
+                                                bucket_db_id.to_owned(),
+                                                bucket.encode().unwrap(),
+                                            );
+
+                                            match db.write(batch) {
+                                                Ok(_) => Ok(Some(res_meta)),
+                                                Err(_e) => Err(std::io::Error::new(ErrorKind::ConnectionAborted, "meta db can't be lock")),
+                                            }
+                                        },
+                                    }
+                                }
+                            }
+                        },
+                        Err(_e) => {
+                            Err(std::io::Error::new(ErrorKind::InvalidData, "meta decoding issue"))
+                        }
+                    },
+                    _ => {
+                        Err(std::io::Error::new(ErrorKind::NotFound, "object not found"))
+                    },
+                }
+            }
+            None => {
+                Err(std::io::Error::new(ErrorKind::ConnectionAborted, "meta db can't be lock"))
+            }
         }
     }
 

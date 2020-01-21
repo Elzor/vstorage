@@ -38,14 +38,14 @@ fn iowait(cpu: CPULoad) -> f32 {
 
 #[derive(Serialize, Deserialize)]
 pub struct Status {
-    node: NodeStatus,
-    meta: MetaStatus,
-    storage: StorageStatus,
-    cpu: CpuStatus,
-    memory: MemoryStatus,
-    la: LaStatus,
-    uptime: UptimeStatus,
-    net: NetStatus,
+    pub node: NodeStatus,
+    pub meta: MetaStatus,
+    pub storage: StorageStatus,
+    pub cpu: CpuStatus,
+    pub memory: MemoryStatus,
+    pub la: LaStatus,
+    pub uptime: UptimeStatus,
+    pub net: NetStatus,
 }
 
 impl Status {
@@ -65,11 +65,13 @@ impl Status {
 
 #[derive(Serialize, Deserialize)]
 pub struct NodeStatus {
-    nodename: String,
-    status: String,
-    zone: String,
-    internal_endpoint: String,
-    public_endpoint: String,
+    pub nodename: String,
+    pub status: String,
+    pub zone: String,
+    pub rest_internal_endpoint: String,
+    pub rest_public_endpoint: String,
+    pub grpc_internal_endpoint: String,
+    pub grpc_public_endpoint: String,
 }
 
 impl NodeStatus {
@@ -79,15 +81,17 @@ impl NodeStatus {
             nodename: cfg.node.nodename,
             status: STATUS.read().unwrap().to_string(),
             zone: cfg.node.zone,
-            public_endpoint: cfg.interfaces.rest_public,
-            internal_endpoint: cfg.interfaces.rest_internal,
+            rest_public_endpoint: cfg.interfaces.rest_public,
+            rest_internal_endpoint: cfg.interfaces.rest_internal,
+            grpc_public_endpoint: cfg.interfaces.grpc_public,
+            grpc_internal_endpoint: cfg.interfaces.grpc_internal,
         }
     }
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct MetaStatus {
-    db_size: u64,
+    pub db_size: u64,
 }
 
 impl MetaStatus {
@@ -103,12 +107,12 @@ impl MetaStatus {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StorageStatus {
-    objects: u64,
-    gc_bytes: u64,
-    move_bytes: u64,
-    init_bytes: u64,
-    avail_bytes: u64,
-    active_slots: u64,
+    pub objects: u64,
+    pub gc_bytes: u64,
+    pub move_bytes: u64,
+    pub init_bytes: u64,
+    pub avail_bytes: u64,
+    pub active_slots: u64,
 }
 
 impl StorageStatus {
@@ -141,12 +145,12 @@ impl StorageStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CpuStatus {
-    user: f32,
-    nice: f32,
-    system: f32,
-    interrupt: f32,
-    idle: f32,
-    iowait: f32,
+    pub user: f32,
+    pub nice: f32,
+    pub system: f32,
+    pub interrupt: f32,
+    pub idle: f32,
+    pub iowait: f32,
 }
 
 impl CpuStatus {
@@ -167,8 +171,8 @@ impl CpuStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryStatus {
-    free: u64,
-    total: u64,
+    pub free: u64,
+    pub total: u64,
 }
 
 impl MemoryStatus {
@@ -182,9 +186,9 @@ impl MemoryStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LaStatus {
-    one: f32,
-    five: f32,
-    fifteen: f32,
+    pub one: f32,
+    pub five: f32,
+    pub fifteen: f32,
 }
 
 impl LaStatus {
@@ -202,8 +206,8 @@ impl LaStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UptimeStatus {
-    host: u64,
-    node: u64,
+    pub host: u64,
+    pub node: u64,
 }
 
 impl UptimeStatus {
@@ -217,11 +221,11 @@ impl UptimeStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetStatus {
-    tcp_in_use: usize,
-    tcp_orphaned: usize,
-    udp_in_use: usize,
-    tcp6_in_use: usize,
-    udp6_in_use: usize,
+    pub tcp_in_use: usize,
+    pub tcp_orphaned: usize,
+    pub udp_in_use: usize,
+    pub tcp6_in_use: usize,
+    pub udp6_in_use: usize,
 }
 
 impl NetStatus {
