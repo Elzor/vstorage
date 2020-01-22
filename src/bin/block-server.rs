@@ -14,7 +14,7 @@ use vstorage::stora::status::PhysStats;
 #[tokio::main]
 async fn main() {
     let matches = App::new("block-server")
-        .about("Block storage chunk-handler. Powered by Vonmo")
+        .about("Block storage blocks handler. Powered by Vonmo")
         .author(crate_authors!())
         .version(crate_version!())
         .long_version(binutil::vm_version_info().as_ref())

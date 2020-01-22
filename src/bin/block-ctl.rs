@@ -1,19 +1,18 @@
-extern crate clap;
+use clap::{crate_authors, crate_version, crate_name, App, Arg};
 extern crate dirs;
 
-use clap::{crate_name, crate_version};
-
-use std::borrow::Cow::{self, Borrowed, Owned};
+use std::borrow::Cow::{self, Owned};
 use std::fs;
 use std::io::Error as IoError;
 use std::process;
 
+use rustyline::{ColorMode, CompletionType, Config, Context, EditMode, Editor, Helper};
 use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::config::OutputStreamType;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use rustyline::hint::{Hinter, HistoryHinter};
-use rustyline::{ColorMode, CompletionType, Config, Context, EditMode, Editor, Helper};
+use vstorage::binutil;
 
 const APP_NAME: &str = "block_ctl";
 
@@ -84,7 +83,7 @@ impl Helper for CtlHelper {}
 
 fn show_welcome() {
     println!(
-        "{} / v{}\n\nVshell (abort with ^C or ^D)",
+        "{} block-ctl / v{}\n\nVshell (abort with ^C or ^D)",
         crate_name!(),
         crate_version!()
     )
@@ -96,6 +95,29 @@ fn main() {
     }
 
     show_welcome();
+
+    let default_block_server_config = vstorage::config::Config::default();
+    let matches = App::new(APP_NAME)
+        .about("Block storage CLI. Powered by Vonmo")
+        .author(crate_authors!())
+        .version(crate_version!())
+        .long_version(binutil::vm_version_info().as_ref())
+        .arg(
+            Arg::with_name("host")
+                .short("h")
+                .long("host")
+                .help("block server endpoint")
+                .default_value(default_block_server_config.interfaces.grpc_internal.as_str())
+                .takes_value(true),
+        )
+        .get_matches();
+
+    let endpoint = matches
+        .value_of("host")
+        .ok_or(default_block_server_config.interfaces.grpc_internal.as_str())
+        .unwrap().to_string();
+
+    println!("connect to {}", endpoint);
 
     let config = Config::builder()
         .history_ignore_space(true)
@@ -141,7 +163,7 @@ fn main() {
                 }
             }
             match line.to_string().to_lowercase().trim() {
-                "exit" | "quit" | "q()." => {
+                "exit" | "quit" | "q()." | "disconnect" | "\\q" => {
                     println!("bye!");
                     process::exit(0);
                 }

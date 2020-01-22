@@ -33,9 +33,8 @@ uuid = { version = "0.8", features = ["serde", "v4"] }
 highway = "0.3.0"
 lz4-compress = "0.1.1"
 http="0.2.0"
-
-tonic = {git = "https://github.com/hyperium/tonic", branch="master"}
-prost= {git = "https://github.com/danburkert/prost", branch="master"}
+tonic = "0.1.1"
+prost = "0.6.1"
 
 [build-dependencies]
 tonic-build = {git = "https://github.com/hyperium/tonic", branch="master"}

@@ -6,7 +6,7 @@ import os
 
 
 class TestHttpApi:
-    endpoint = "http://localhost:33087"
+    endpoint = "http://[::1]:33087"
     payload = '''
         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut blandit rhoncus magna eget sollicitudin. Ut sem nisi, molestie quis neque ut, pellentesque sollicitudin velit. Quisque consequat risus erat, vitae volutpat est faucibus posuere. Nunc ultricies turpis non ipsum consectetur tincidunt sit amet sed urna. Donec fermentum ut elit ut auctor. Morbi et semper nulla, quis rhoncus massa. Curabitur consequat lorem sapien, vehicula tincidunt metus viverra nec. Nam consequat orci justo, ac malesuada diam scelerisque sed. Phasellus ut ligula purus. Ut elementum odio eget nunc euismod, eu pharetra eros efficitur. Donec faucibus massa eget mi pellentesque, bibendum sollicitudin elit efficitur. Nunc ante lacus, viverra vitae congue aliquet, molestie ut risus.
         Vivamus viverra molestie nulla, vel maximus odio vestibulum vitae. Quisque tempus blandit mi, a fringilla leo. In quis nulla quis quam fringilla tincidunt. Nam sit amet elit eget diam molestie mattis in sed ipsum. Sed tincidunt, odio at feugiat placerat, purus nisi tincidunt dolor, vitae ornare lorem nisl eget enim. Praesent neque dolor, tincidunt eget justo et, ullamcorper consectetur ligula. Ut vulputate arcu erat, in sagittis ligula cursus ac. Etiam vel cursus leo, vehicula tempus tortor. Donec ipsum risus, interdum id iaculis eget, condimentum a urna.

@@ -96,6 +96,9 @@ impl BlockApi for MyBlockApi {
             bid => bid.to_string()
         };
         let payload = request.payload;
+
+        GRPC_BYTES_IN.inc_by(payload.len() as f64);
+
         if payload.len() > CONFIG.read().unwrap().clone().unwrap().storage.block_size_limit_bytes as usize
         {
             timer.observe_duration();
@@ -162,6 +165,7 @@ impl BlockApi for MyBlockApi {
                         return Err(tonic::Status::unavailable("Disk issue on this machine"));
                     }
                 };
+                GRPC_BYTES_OUT.inc_by(body.len() as f64);
                 timer.observe_duration();
                 Ok(Response::new(GetReply {
                     block_id: meta.id.clone(),
@@ -225,6 +229,8 @@ impl BlockApi for MyBlockApi {
                 ()
             }
         }
+
+        GRPC_BYTES_IN.inc_by(b.size as f64);
 
         let slot = { DISK.write().unwrap().get_write_slot() };
         match slot {
@@ -329,6 +335,8 @@ impl BlockApi for MyBlockApi {
                 ()
             }
         }
+
+        GRPC_BYTES_IN.inc_by(b.size as f64);
 
         let slot = { DISK.write().unwrap().get_write_slot() };
         match slot {

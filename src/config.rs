@@ -137,10 +137,10 @@ pub struct Interfaces {
 impl Default for Interfaces {
     fn default() -> Interfaces {
         Interfaces {
-            rest_public: "127.0.0.1:33088".to_string(),
-            rest_internal: "127.0.0.1:33087".to_string(),
-            grpc_public: "127.0.0.1:33086".to_string(),
-            grpc_internal: "127.0.0.1:33085".to_string(),
+            rest_public: "[::1]:33088".to_string(),
+            rest_internal: "[::1]:33087".to_string(),
+            grpc_public: "[::1]:33086".to_string(),
+            grpc_internal: "[::1]:33085".to_string(),
         }
     }
 }
