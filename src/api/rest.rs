@@ -14,7 +14,7 @@ use uuid::Uuid;
 use crate::config::Config;
 use crate::metrics::{HTTP_BYTES_IN, HTTP_BYTES_OUT, HTTP_COUNTER, HTTP_REQ_HISTOGRAM};
 use crate::stora::disk::{mark_block_as_deleted, read_block, DISK};
-use crate::stora::meta::HashFun::{OTHER, HGW128, HGW256, MD5, SHA128, SHA256};
+use crate::stora::meta::HashFun::{Other, Hgw128, Hgw256, Md5, Sha128, Sha256};
 use crate::stora::meta::{BlockMeta, Compression, HashFun};
 use crate::stora::status::Status;
 
@@ -55,15 +55,15 @@ async fn block_api(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         let hash_fun_header_name = "v-hash-fun";
         if req.headers().contains_key(hash_fun_header_name) {
             match req.headers().get(hash_fun_header_name).unwrap().as_bytes() {
-                b"1" => MD5,
-                b"2" => SHA128,
-                b"3" => SHA256,
-                b"4" => HGW128,
-                b"5" => HGW256,
-                _ => OTHER,
+                b"1" => Md5,
+                b"2" => Sha128,
+                b"3" => Sha256,
+                b"4" => Hgw128,
+                b"5" => Hgw256,
+                _ => Other,
             }
         } else {
-            HGW128
+            Hgw128
         }
     };
 

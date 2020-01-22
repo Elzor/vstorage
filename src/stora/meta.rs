@@ -1,22 +1,23 @@
 extern crate walkdir;
 
 use std::fmt::Error;
+use std::fs::OpenOptions;
+use std::io::ErrorKind;
+use std::io::prelude::*;
 use std::sync::RwLock;
 use std::time::SystemTime;
 
 use highway::{HighwayBuilder, HighwayHash, Key};
 use rmps::Serializer;
-use rocksdb::{IteratorMode, WriteBatch, DB};
+use rocksdb::{DB, IteratorMode, WriteBatch};
 use serde::{Deserialize, Serialize};
 use tokio::time;
 use walkdir::WalkDir;
 
+use crate::api::rpc::block_api;
 use crate::binutil::setup;
 use crate::config::Config;
 use crate::metrics::META_DB_SIZE_GAUGE;
-use std::fs::OpenOptions;
-use std::io::ErrorKind;
-use std::io::prelude::*;
 use crate::stora::disk::read_block;
 
 #[derive(Debug)]
@@ -65,12 +66,12 @@ pub fn db_size() -> Option<u64> {
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum HashFun {
-    OTHER,
-    MD5,
-    SHA128,
-    SHA256,
-    HGW128,
-    HGW256,
+    Other,
+    Md5,
+    Sha128,
+    Sha256,
+    Hgw128,
+    Hgw256,
 }
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
@@ -109,7 +110,7 @@ impl BlockMeta {
             volume_id: "".to_string(),
             bucket_id: 0,
             content_type: "".to_string(),
-            hash_fun: HashFun::HGW128,
+            hash_fun: HashFun::Hgw128,
             hash: "".to_string(),
             crc: "".to_string(),
             size: 0,
@@ -134,6 +135,25 @@ impl BlockMeta {
     pub fn decode(payload: Vec<u8>) -> Result<BlockMeta, Error> {
         let r: BlockMeta = rmps::from_read_ref(&payload).unwrap();
         Ok(r)
+    }
+
+    pub fn to_grpc(&self) -> block_api::Meta {
+        block_api::Meta {
+            content_type: self.content_type.to_owned(),
+            crc: self.crc.to_owned(),
+            created: self.created,
+            hash: self.hash.to_owned(),
+            hash_fun: match self.hash_fun {
+                HashFun::Md5 => block_api::HashFun::Md5 as i32,
+                HashFun::Sha128 => block_api::HashFun::Sha128 as i32,
+                HashFun::Sha256 => block_api::HashFun::Sha256 as i32,
+                HashFun::Hgw128 => block_api::HashFun::Hgw128 as i32,
+                HashFun::Hgw256 => block_api::HashFun::Hgw256 as i32,
+                _ => block_api::HashFun::Other as i32,
+            },
+            last_check: self.last_check_ts,
+            size: self.size,
+        }
     }
 
     pub fn store(self) -> Result<(), ()> {
@@ -316,7 +336,7 @@ impl BlockMeta {
                 match db.get_cf(cf, block_id.as_str()) {
                     Ok(None) => {
                         Err(std::io::Error::new(ErrorKind::NotFound, "object not found"))
-                    },
+                    }
                     Ok(r) => match BlockMeta::decode(r.unwrap()) {
                         Ok(mut res) => {
                             match OpenOptions::new().append(true).open(&res.path) {
@@ -328,7 +348,7 @@ impl BlockMeta {
                                     match file.write_all(payload.as_slice()) {
                                         Err(why) => {
                                             Err(why)
-                                        },
+                                        }
                                         Ok(_) => {
                                             let body = match read_block(&res.path) {
                                                 Ok(content) => {
@@ -357,7 +377,7 @@ impl BlockMeta {
                                                     }
                                                 },
                                                 _ => {
-                                                    return Err(std::io::Error::new(ErrorKind::NotFound, "bucket not found"))
+                                                    return Err(std::io::Error::new(ErrorKind::NotFound, "bucket not found"));
                                                 }
                                             };
                                             bucket.avail_size_bytes -= payload.len() as u64;
@@ -379,18 +399,18 @@ impl BlockMeta {
                                                 Ok(_) => Ok(Some(res_meta)),
                                                 Err(_e) => Err(std::io::Error::new(ErrorKind::ConnectionAborted, "meta db can't be lock")),
                                             }
-                                        },
+                                        }
                                     }
                                 }
                             }
-                        },
+                        }
                         Err(_e) => {
                             Err(std::io::Error::new(ErrorKind::InvalidData, "meta decoding issue"))
                         }
                     },
                     _ => {
                         Err(std::io::Error::new(ErrorKind::NotFound, "object not found"))
-                    },
+                    }
                 }
             }
             None => {

@@ -11,6 +11,30 @@ lazy_static! {
     ).unwrap();
 
     // ---------------------------------------------------------------------------------------------
+    // grpc api
+    // ---------------------------------------------------------------------------------------------
+    pub static ref GRPC_COUNTER: Counter = register_counter!(opts!(
+        "grpc_requests_total",
+        "Total number of GRPC requests made."
+    )).unwrap();
+
+    pub static ref GRPC_BYTES_IN: Counter = register_counter!(opts!(
+        "grpc_request_size_bytes",
+        "The GRPC request sizes in bytes."
+    )).unwrap();
+
+    pub static ref GRPC_BYTES_OUT: Counter = register_counter!(opts!(
+        "grpc_response_size_bytes",
+        "The GRPC response sizes in bytes."
+    )).unwrap();
+
+    pub static ref GRPC_REQ_HISTOGRAM: HistogramVec = register_histogram_vec!(
+        "grpc_request_duration_seconds",
+        "The GRPC request latencies in seconds.",
+        &["method"]
+    ).unwrap();
+
+    // ---------------------------------------------------------------------------------------------
     // http api
     // ---------------------------------------------------------------------------------------------
     pub static ref HTTP_COUNTER: Counter = register_counter!(opts!(

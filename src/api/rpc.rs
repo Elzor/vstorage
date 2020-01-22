@@ -19,8 +19,10 @@ use block_api::block_api_server::{BlockApi, BlockApiServer};
 use crate::config::Config;
 use crate::stora::disk::{DISK, mark_block_as_deleted, read_block};
 use crate::stora::meta::BlockMeta;
-use crate::stora::meta::HashFun::{HGW128, HGW256, MD5, OTHER, SHA128, SHA256};
+use crate::stora::meta::HashFun::{Hgw128, Hgw256, Md5, Other, Sha128, Sha256};
 use crate::stora::status::Status as SysStatus;
+
+use crate::metrics::{GRPC_BYTES_IN, GRPC_BYTES_OUT, GRPC_COUNTER, GRPC_REQ_HISTOGRAM};
 
 lazy_static! {
     pub static ref CONFIG: RwLock<Option<Config>> = RwLock::new(None);
@@ -45,9 +47,14 @@ impl BlockApi for MyBlockApi {
         &self,
         request: Request<DeleteRequest>,
     ) -> Result<Response<DeleteReply>, Status> {
+        let timer = GRPC_REQ_HISTOGRAM
+            .with_label_values(&["delete"])
+            .start_timer();
+        GRPC_COUNTER.inc();
         let request = request.into_inner();
         let block_id = match request.block_id.as_str() {
             "" => {
+                timer.observe_duration();
                 return Err(tonic::Status::invalid_argument("Block id is required"));
             }
             bid => bid.to_string()
@@ -57,13 +64,16 @@ impl BlockApi for MyBlockApi {
                 let deleted_bid = meta.id.to_owned();
                 if let Err(_) = mark_block_as_deleted(meta) {
                     error!("can't mark block as deleted");
+                    timer.observe_duration();
                     return Err(tonic::Status::internal("Metadb issue"));
                 }
+                timer.observe_duration();
                 Ok(Response::new(DeleteReply {
                     block_id: deleted_bid,
                 }))
             }
             _ => {
+                timer.observe_duration();
                 Err(tonic::Status::not_found("Block id is not found"))
             }
         }
@@ -73,9 +83,14 @@ impl BlockApi for MyBlockApi {
         &self,
         request: Request<AppendRequest>,
     ) -> Result<Response<AppendReply>, Status> {
+        let timer = GRPC_REQ_HISTOGRAM
+            .with_label_values(&["append"])
+            .start_timer();
+        GRPC_COUNTER.inc();
         let request = request.into_inner();
         let block_id = match request.block_id.as_str() {
             "" => {
+                timer.observe_duration();
                 return Err(tonic::Status::invalid_argument("Block id is required"));
             }
             bid => bid.to_string()
@@ -83,32 +98,20 @@ impl BlockApi for MyBlockApi {
         let payload = request.payload;
         if payload.len() > CONFIG.read().unwrap().clone().unwrap().storage.block_size_limit_bytes as usize
         {
+            timer.observe_duration();
             return Err(tonic::Status::resource_exhausted("Payload too large"));
         }
         match BlockMeta::append(block_id, payload) {
             Ok(Some(meta)) => {
+                timer.observe_duration();
                 Ok(Response::new(AppendReply {
-                    block_id: meta.id,
-                    object_id: meta.object_id,
-                    meta: Some(block_api::Meta {
-                        content_type: meta.content_type,
-                        crc: meta.crc,
-                        created: meta.created,
-                        hash: meta.hash,
-                        hash_fun: match meta.hash_fun {
-                            MD5 => block_api::HashFun::Md5 as i32,
-                            SHA128 => block_api::HashFun::Sha128 as i32,
-                            SHA256 => block_api::HashFun::Sha256 as i32,
-                            HGW128 => block_api::HashFun::Hgw128 as i32,
-                            HGW256 => block_api::HashFun::Hgw256 as i32,
-                            _ => block_api::HashFun::Other as i32,
-                        },
-                        last_check: meta.last_check_ts,
-                        size: meta.size,
-                    }),
+                    block_id: meta.id.clone(),
+                    object_id: meta.object_id.clone(),
+                    meta: Some(meta.to_grpc()),
                 }))
             }
             _ => {
+                timer.observe_duration();
                 Err(tonic::Status::not_found("Block id is not found"))
             }
         }
@@ -118,9 +121,14 @@ impl BlockApi for MyBlockApi {
         &self,
         request: Request<GetRequest>,
     ) -> Result<Response<GetReply>, Status> {
+        let timer = GRPC_REQ_HISTOGRAM
+            .with_label_values(&["get"])
+            .start_timer();
+        GRPC_COUNTER.inc();
         let request = request.into_inner();
         let block_id = match request.block_id.as_str() {
             "" => {
+                timer.observe_duration();
                 return Err(tonic::Status::invalid_argument("Block id is required"));
             }
             bid => bid.to_string()
@@ -130,6 +138,7 @@ impl BlockApi for MyBlockApi {
         match BlockMeta::get(block_id) {
             Ok(Some(meta)) => {
                 if !crc.eq("") && crc.eq(&meta.crc) {
+                    timer.observe_duration();
                     return Ok(Response::new(GetReply {
                         block_id: meta.id,
                         object_id: meta.object_id,
@@ -149,34 +158,22 @@ impl BlockApi for MyBlockApi {
                     }
                     Err(e) => {
                         error!("can't read block: {}", e);
+                        timer.observe_duration();
                         return Err(tonic::Status::unavailable("Disk issue on this machine"));
                     }
                 };
+                timer.observe_duration();
                 Ok(Response::new(GetReply {
-                    block_id: meta.id,
-                    object_id: meta.object_id,
+                    block_id: meta.id.clone(),
+                    object_id: meta.object_id.clone(),
                     payload: body,
                     not_modified: false,
                     compressed: !(meta.compressed && !lz4_transfer),
-                    meta: Some(block_api::Meta {
-                        content_type: meta.content_type,
-                        crc: meta.crc,
-                        created: meta.created,
-                        hash: meta.hash,
-                        hash_fun: match meta.hash_fun {
-                            MD5 => block_api::HashFun::Md5 as i32,
-                            SHA128 => block_api::HashFun::Sha128 as i32,
-                            SHA256 => block_api::HashFun::Sha256 as i32,
-                            HGW128 => block_api::HashFun::Hgw128 as i32,
-                            HGW256 => block_api::HashFun::Hgw256 as i32,
-                            _ => block_api::HashFun::Other as i32,
-                        },
-                        last_check: meta.last_check_ts,
-                        size: meta.size,
-                    }),
+                    meta: Some(meta.to_grpc()),
                 }))
             }
             _ => {
+                timer.observe_duration();
                 return Err(tonic::Status::not_found("Block id is not found"));
             }
         }
@@ -186,6 +183,10 @@ impl BlockApi for MyBlockApi {
         &self,
         request: Request<UpsertRequest>,
     ) -> Result<Response<UpsertReply>, Status> {
+        let timer = GRPC_REQ_HISTOGRAM
+            .with_label_values(&["upsert"])
+            .start_timer();
+        GRPC_COUNTER.inc();
         let request = request.into_inner();
         let block_id = match request.block_id.as_str() {
             "" => format!("{}", Uuid::new_v4().to_simple()),
@@ -195,6 +196,7 @@ impl BlockApi for MyBlockApi {
         let payload = request.payload;
         if payload.len() > CONFIG.read().unwrap().clone().unwrap().storage.block_size_limit_bytes as usize
         {
+            timer.observe_duration();
             return Err(tonic::Status::resource_exhausted("Payload too large"));
         }
 
@@ -210,12 +212,12 @@ impl BlockApi for MyBlockApi {
                 b.compressed = options.compress;
                 b.hash = options.hash;
                 b.hash_fun = match options.hash_fun {
-                    1 => MD5,
-                    2 => SHA128,
-                    3 => SHA256,
-                    4 => HGW128,
-                    5 => HGW256,
-                    _ => OTHER,
+                    1 => Md5,
+                    2 => Sha128,
+                    3 => Sha256,
+                    4 => Hgw128,
+                    5 => Hgw256,
+                    _ => Other,
                 };
             }
             _ => {
@@ -250,39 +252,28 @@ impl BlockApi for MyBlockApi {
                         let bc = b.clone().to_owned();
                         if let Err(_) = slot.commit(b) {
                             error!("can't commit slot");
+                            timer.observe_duration();
                             return Err(tonic::Status::internal("Disk can't write payload"));
                         } else {
+                            timer.observe_duration();
                             Ok(Response::new(UpsertReply {
-                                block_id: block_id,
-                                object_id: object_id,
-                                meta: Some(block_api::Meta {
-                                    content_type: bc.content_type,
-                                    crc: bc.crc,
-                                    created: bc.created,
-                                    hash: bc.hash,
-                                    hash_fun: match bc.hash_fun {
-                                        MD5 => block_api::HashFun::Md5 as i32,
-                                        SHA128 => block_api::HashFun::Sha128 as i32,
-                                        SHA256 => block_api::HashFun::Sha256 as i32,
-                                        HGW128 => block_api::HashFun::Hgw128 as i32,
-                                        HGW256 => block_api::HashFun::Hgw256 as i32,
-                                        _ => block_api::HashFun::Other as i32,
-                                    },
-                                    last_check: bc.last_check_ts,
-                                    size: bc.size,
-                                }),
+                                block_id: block_id.clone(),
+                                object_id: object_id.clone(),
+                                meta: Some(bc.to_grpc()),
                             }))
                         }
                     }
                     Err(e) => {
                         slot.release(0);
                         error!("can't write payload {}", e);
+                        timer.observe_duration();
                         return Err(tonic::Status::internal("Disk can't write payload"));
                     }
                 }
             }
             Err(_) => {
                 error!("disk get slot");
+                timer.observe_duration();
                 return Err(tonic::Status::internal("Disk get slot issue"));
             }
         }
@@ -292,6 +283,10 @@ impl BlockApi for MyBlockApi {
         &self,
         request: Request<InsertRequest>,
     ) -> Result<Response<InsertReply>, Status> {
+        let timer = GRPC_REQ_HISTOGRAM
+            .with_label_values(&["insert"])
+            .start_timer();
+        GRPC_COUNTER.inc();
         let request = request.into_inner();
         let block_id = match request.block_id.as_str() {
             "" => format!("{}", Uuid::new_v4().to_simple()),
@@ -301,9 +296,11 @@ impl BlockApi for MyBlockApi {
         let payload = request.payload;
         if payload.len() > CONFIG.read().unwrap().clone().unwrap().storage.block_size_limit_bytes as usize
         {
+            timer.observe_duration();
             return Err(tonic::Status::resource_exhausted("Payload too large"));
         }
         if let Ok(true) = BlockMeta::exists(block_id.clone()) {
+            timer.observe_duration();
             return Err(tonic::Status::already_exists("Object with this id exists"));
         }
 
@@ -319,12 +316,12 @@ impl BlockApi for MyBlockApi {
                 b.compressed = options.compress;
                 b.hash = options.hash;
                 b.hash_fun = match options.hash_fun {
-                    1 => MD5,
-                    2 => SHA128,
-                    3 => SHA256,
-                    4 => HGW128,
-                    5 => HGW256,
-                    _ => OTHER,
+                    1 => Md5,
+                    2 => Sha128,
+                    3 => Sha256,
+                    4 => Hgw128,
+                    5 => Hgw256,
+                    _ => Other,
                 };
             }
             _ => {
@@ -359,39 +356,28 @@ impl BlockApi for MyBlockApi {
                         let bc = b.clone().to_owned();
                         if let Err(_) = slot.commit(b) {
                             error!("can't commit slot");
+                            timer.observe_duration();
                             return Err(tonic::Status::internal("Disk can't write payload"));
                         } else {
+                            timer.observe_duration();
                             Ok(Response::new(InsertReply {
-                                block_id: block_id,
-                                object_id: object_id,
-                                meta: Some(block_api::Meta {
-                                    content_type: bc.content_type,
-                                    crc: bc.crc,
-                                    created: bc.created,
-                                    hash: bc.hash,
-                                    hash_fun: match bc.hash_fun {
-                                        MD5 => block_api::HashFun::Md5 as i32,
-                                        SHA128 => block_api::HashFun::Sha128 as i32,
-                                        SHA256 => block_api::HashFun::Sha256 as i32,
-                                        HGW128 => block_api::HashFun::Hgw128 as i32,
-                                        HGW256 => block_api::HashFun::Hgw256 as i32,
-                                        _ => block_api::HashFun::Other as i32,
-                                    },
-                                    last_check: bc.last_check_ts,
-                                    size: bc.size,
-                                }),
+                                block_id: block_id.clone(),
+                                object_id: object_id.clone(),
+                                meta: Some(bc.to_grpc()),
                             }))
                         }
                     }
                     Err(e) => {
                         slot.release(0);
                         error!("can't write payload {}", e);
+                        timer.observe_duration();
                         return Err(tonic::Status::internal("Disk can't write payload"));
                     }
                 }
             }
             Err(_) => {
                 error!("disk get slot");
+                timer.observe_duration();
                 return Err(tonic::Status::internal("Disk get slot issue"));
             }
         }
@@ -401,9 +387,15 @@ impl BlockApi for MyBlockApi {
         &self,
         request: Request<ExistsRequest>,
     ) -> Result<Response<ExistsReply>, Status> {
+        let timer = GRPC_REQ_HISTOGRAM
+            .with_label_values(&["exists"])
+            .start_timer();
+        GRPC_COUNTER.inc();
         let block_id = request.into_inner().block_id;
+        let found = BlockMeta::exists(block_id) == Ok(true);
+        timer.observe_duration();
         Ok(Response::new(ExistsReply {
-            found: BlockMeta::exists(block_id) == Ok(true),
+            found: found,
         }))
     }
     // ---------------------------------------------------------------------------------------------
@@ -411,6 +403,11 @@ impl BlockApi for MyBlockApi {
         &self,
         _request: Request<IdxRequest>,
     ) -> Result<Response<IdxReply>, Status> {
+        let timer = GRPC_REQ_HISTOGRAM
+            .with_label_values(&["idx"])
+            .start_timer();
+        GRPC_COUNTER.inc();
+        timer.observe_duration();
         Ok(Response::new(IdxReply {
             message: "The little block engine that could!".into(),
         }))
@@ -420,6 +417,10 @@ impl BlockApi for MyBlockApi {
         &self,
         _request: Request<StatusRequest>,
     ) -> Result<Response<StatusReply>, Status> {
+        let timer = GRPC_REQ_HISTOGRAM
+            .with_label_values(&["status"])
+            .start_timer();
+        GRPC_COUNTER.inc();
         let status = SysStatus::new();
         let reply = StatusReply {
             node: Some(status_reply::Node {
@@ -471,6 +472,7 @@ impl BlockApi for MyBlockApi {
                 udp6_in_use: status.net.udp6_in_use as u64,
             }),
         };
+        timer.observe_duration();
         Ok(Response::new(reply))
     }
 }
