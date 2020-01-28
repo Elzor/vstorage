@@ -299,6 +299,45 @@ async fn block_api(req: Request<Body>) -> Result<Response<Body>, Infallible> {
             }
         }
         // -----------------------------------------------------------------------------------------
+        (&Method::POST, ("block_append", argc), _) => {
+            let block_id = if argc > 1 {
+                // with id
+                tokens[1].to_string()
+            } else {
+                // without id
+                let mut res = Response::default();
+                *res.status_mut() = StatusCode::BAD_REQUEST;
+
+                timer.observe_duration();
+                return Ok(res);
+            };
+
+            if payload_size(&req) > CONFIG.read().unwrap().clone().unwrap().storage.block_size_limit_bytes
+            {
+                let mut res = Response::default();
+                *res.status_mut() = StatusCode::PAYLOAD_TOO_LARGE;
+
+                timer.observe_duration();
+                return Ok(res);
+            }
+
+            let payload= hyper::body::to_bytes(req.into_body()).await.unwrap().to_vec();
+
+            let code = match BlockMeta::append(block_id, payload) {
+                Ok(Some(_meta)) => {
+                    StatusCode::NO_CONTENT
+                }
+                _ => {
+                    StatusCode::NOT_FOUND
+                }
+            };
+            let mut res = Response::default();
+            *res.status_mut() = code;
+
+            timer.observe_duration();
+            Ok(res)
+        }
+        // -----------------------------------------------------------------------------------------
         (&Method::PUT, ("block", argc), _) | (&Method::POST, ("block", argc), _) => {
             let block_id = if argc > 1 {
                 // with id

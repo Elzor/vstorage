@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='block_api',
   syntax='proto3',
   serialized_options=_b('H\001'),
-  serialized_pb=_b('\n\x0f\x62lock_api.proto\x12\tblock_api\"\x90\x01\n\x04Meta\x12\x14\n\x0c\x63ontent_type\x18\x01 \x01(\t\x12\x0c\n\x04hash\x18\x02 \x01(\t\x12$\n\x08hash_fun\x18\x03 \x01(\x0e\x32\x12.block_api.HashFun\x12\x0b\n\x03\x63rc\x18\x04 \x01(\t\x12\x0c\n\x04size\x18\x05 \x01(\x04\x12\x0f\n\x07\x63reated\x18\x06 \x01(\x04\x12\x12\n\nlast_check\x18\x07 \x01(\x04\"j\n\x0cWriteOptions\x12\x14\n\x0c\x63ontent_type\x18\x01 \x01(\t\x12\x10\n\x08\x63ompress\x18\x02 \x01(\x08\x12\x0c\n\x04hash\x18\x03 \x01(\t\x12$\n\x08hash_fun\x18\x04 \x01(\x0e\x32\x12.block_api.HashFun\"o\n\rDeleteRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x31\n\x07options\x18\x02 \x01(\x0b\x32 .block_api.DeleteRequest.Options\x1a\x19\n\x07Options\x12\x0e\n\x06\x64irect\x18\x01 \x01(\x08\"\x1f\n\x0b\x44\x65leteReply\x12\x10\n\x08\x62lock_id\x18\x02 \x01(\t\"\\\n\rAppendRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\x12(\n\x07options\x18\x03 \x01(\x0b\x32\x17.block_api.WriteOptions\"Q\n\x0b\x41ppendReply\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x1d\n\x04meta\x18\x03 \x01(\x0b\x32\x0f.block_api.Meta\"o\n\rUpsertRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12(\n\x07options\x18\x04 \x01(\x0b\x32\x17.block_api.WriteOptions\"Q\n\x0bUpsertReply\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x1d\n\x04meta\x18\x03 \x01(\x0b\x32\x0f.block_api.Meta\"o\n\rInsertRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12(\n\x07options\x18\x04 \x01(\x0b\x32\x17.block_api.WriteOptions\"Q\n\x0bInsertReply\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x1d\n\x04meta\x18\x03 \x01(\x0b\x32\x0f.block_api.Meta\"E\n\nGetRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x0b\n\x03\x63rc\x18\x02 \x01(\t\x12\x18\n\x10\x61llow_compressed\x18\x03 \x01(\x08\"\x89\x01\n\x08GetReply\x12\x10\n\x08\x62lock_id\x18\x02 \x01(\t\x12\x11\n\tobject_id\x18\x03 \x01(\t\x12\x0f\n\x07payload\x18\x04 \x01(\x0c\x12\x12\n\ncompressed\x18\x05 \x01(\x08\x12\x14\n\x0cnot_modified\x18\x06 \x01(\x08\x12\x1d\n\x04meta\x18\x07 \x01(\x0b\x32\x0f.block_api.Meta\"!\n\rExistsRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\"\x1c\n\x0b\x45xistsReply\x12\r\n\x05\x66ound\x18\x01 \x01(\x08\"\x0c\n\nIdxRequest\"\x1b\n\x08IdxReply\x12\x0f\n\x07message\x18\x01 \x01(\t\"\x0f\n\rStatusRequest\"\x8c\x08\n\x0bStatusReply\x12)\n\x04node\x18\x01 \x01(\x0b\x32\x1b.block_api.StatusReply.Node\x12)\n\x04meta\x18\x02 \x01(\x0b\x32\x1b.block_api.StatusReply.Meta\x12/\n\x07storage\x18\x03 \x01(\x0b\x32\x1e.block_api.StatusReply.Storage\x12\'\n\x03\x63pu\x18\x04 \x01(\x0b\x32\x1a.block_api.StatusReply.Cpu\x12-\n\x06memory\x18\x05 \x01(\x0b\x32\x1d.block_api.StatusReply.Memory\x12%\n\x02la\x18\x06 \x01(\x0b\x32\x19.block_api.StatusReply.LA\x12-\n\x06uptime\x18\x07 \x01(\x0b\x32\x1d.block_api.StatusReply.Uptime\x12\'\n\x03net\x18\x08 \x01(\x0b\x32\x1a.block_api.StatusReply.Net\x1a\xb2\x01\n\x04Node\x12\x10\n\x08nodename\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x0c\n\x04zone\x18\x03 \x01(\t\x12\x1c\n\x14rest_public_endpoint\x18\x04 \x01(\t\x12\x1e\n\x16rest_internal_endpoint\x18\x05 \x01(\t\x12\x1c\n\x14grpc_public_endpoint\x18\x06 \x01(\t\x12\x1e\n\x16grpc_internal_endpoint\x18\x07 \x01(\t\x1a\x17\n\x04Meta\x12\x0f\n\x07\x64\x62_size\x18\x01 \x01(\x04\x1a\x7f\n\x07Storage\x12\x0f\n\x07objects\x18\x01 \x01(\x04\x12\x10\n\x08gc_bytes\x18\x02 \x01(\x04\x12\x12\n\nmove_bytes\x18\x03 \x01(\x04\x12\x12\n\ninit_bytes\x18\x04 \x01(\x04\x12\x13\n\x0b\x61vail_bytes\x18\x05 \x01(\x04\x12\x14\n\x0c\x61\x63tive_slots\x18\x06 \x01(\x04\x1a\x62\n\x03\x43pu\x12\x0c\n\x04user\x18\x01 \x01(\x02\x12\x0c\n\x04nice\x18\x02 \x01(\x02\x12\x0e\n\x06system\x18\x03 \x01(\x02\x12\x11\n\tinterrupt\x18\x04 \x01(\x02\x12\x0c\n\x04idle\x18\x05 \x01(\x02\x12\x0e\n\x06iowait\x18\x06 \x01(\x02\x1a%\n\x06Memory\x12\x0c\n\x04\x66ree\x18\x01 \x01(\x04\x12\r\n\x05total\x18\x02 \x01(\x04\x1a\x30\n\x02LA\x12\x0b\n\x03one\x18\x01 \x01(\x02\x12\x0c\n\x04\x66ive\x18\x02 \x01(\x02\x12\x0f\n\x07\x66ifteen\x18\x03 \x01(\x02\x1a$\n\x06Uptime\x12\x0c\n\x04host\x18\x01 \x01(\x04\x12\x0c\n\x04node\x18\x02 \x01(\x04\x1am\n\x03Net\x12\x12\n\ntcp_in_use\x18\x01 \x01(\x04\x12\x14\n\x0ctcp_orphaned\x18\x02 \x01(\x04\x12\x12\n\nudp_in_use\x18\x03 \x01(\x04\x12\x13\n\x0btcp6_in_use\x18\x04 \x01(\x04\x12\x13\n\x0budp6_in_use\x18\x05 \x01(\x04*M\n\x07HashFun\x12\t\n\x05OTHER\x10\x00\x12\x07\n\x03MD5\x10\x01\x12\n\n\x06SHA128\x10\x02\x12\n\n\x06SHA256\x10\x03\x12\n\n\x06HGW128\x10\x04\x12\n\n\x06HGW256\x10\x05\x32\xd8\x03\n\x08\x42lockApi\x12:\n\x06\x44\x65lete\x12\x18.block_api.DeleteRequest\x1a\x16.block_api.DeleteReply\x12:\n\x06\x41ppend\x12\x18.block_api.AppendRequest\x1a\x16.block_api.AppendReply\x12:\n\x06Upsert\x12\x18.block_api.UpsertRequest\x1a\x16.block_api.UpsertReply\x12:\n\x06Insert\x12\x18.block_api.InsertRequest\x1a\x16.block_api.InsertReply\x12\x31\n\x03Get\x12\x15.block_api.GetRequest\x1a\x13.block_api.GetReply\x12:\n\x06\x45xists\x12\x18.block_api.ExistsRequest\x1a\x16.block_api.ExistsReply\x12\x31\n\x03Idx\x12\x15.block_api.IdxRequest\x1a\x13.block_api.IdxReply\x12:\n\x06Status\x12\x18.block_api.StatusRequest\x1a\x16.block_api.StatusReplyB\x02H\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x0f\x62lock_api.proto\x12\tblock_api\"\x90\x01\n\x04Meta\x12\x14\n\x0c\x63ontent_type\x18\x01 \x01(\t\x12\x0c\n\x04hash\x18\x02 \x01(\t\x12$\n\x08hash_fun\x18\x03 \x01(\x0e\x32\x12.block_api.HashFun\x12\x0b\n\x03\x63rc\x18\x04 \x01(\t\x12\x0c\n\x04size\x18\x05 \x01(\x04\x12\x0f\n\x07\x63reated\x18\x06 \x01(\x04\x12\x12\n\nlast_check\x18\x07 \x01(\x04\"j\n\x0cWriteOptions\x12\x14\n\x0c\x63ontent_type\x18\x01 \x01(\t\x12\x10\n\x08\x63ompress\x18\x02 \x01(\x08\x12\x0c\n\x04hash\x18\x03 \x01(\t\x12$\n\x08hash_fun\x18\x04 \x01(\x0e\x32\x12.block_api.HashFun\"o\n\rDeleteRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x31\n\x07options\x18\x02 \x01(\x0b\x32 .block_api.DeleteRequest.Options\x1a\x19\n\x07Options\x12\x0e\n\x06\x64irect\x18\x01 \x01(\x08\"\x1f\n\x0b\x44\x65leteReply\x12\x10\n\x08\x62lock_id\x18\x02 \x01(\t\"\\\n\rAppendRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\x12(\n\x07options\x18\x03 \x01(\x0b\x32\x17.block_api.WriteOptions\"Q\n\x0b\x41ppendReply\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x1d\n\x04meta\x18\x03 \x01(\x0b\x32\x0f.block_api.Meta\"o\n\rUpsertRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12(\n\x07options\x18\x04 \x01(\x0b\x32\x17.block_api.WriteOptions\"Q\n\x0bUpsertReply\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x1d\n\x04meta\x18\x03 \x01(\x0b\x32\x0f.block_api.Meta\"o\n\rInsertRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12(\n\x07options\x18\x04 \x01(\x0b\x32\x17.block_api.WriteOptions\"Q\n\x0bInsertReply\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x11\n\tobject_id\x18\x02 \x01(\t\x12\x1d\n\x04meta\x18\x03 \x01(\x0b\x32\x0f.block_api.Meta\"E\n\nGetRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\x12\x0b\n\x03\x63rc\x18\x02 \x01(\t\x12\x18\n\x10\x61llow_compressed\x18\x03 \x01(\x08\"\x89\x01\n\x08GetReply\x12\x10\n\x08\x62lock_id\x18\x02 \x01(\t\x12\x11\n\tobject_id\x18\x03 \x01(\t\x12\x0f\n\x07payload\x18\x04 \x01(\x0c\x12\x12\n\ncompressed\x18\x05 \x01(\x08\x12\x14\n\x0cnot_modified\x18\x06 \x01(\x08\x12\x1d\n\x04meta\x18\x07 \x01(\x0b\x32\x0f.block_api.Meta\"!\n\rExistsRequest\x12\x10\n\x08\x62lock_id\x18\x01 \x01(\t\"\x1c\n\x0b\x45xistsReply\x12\r\n\x05\x66ound\x18\x01 \x01(\x08\"\x0c\n\nIdxRequest\"\x1b\n\x08IdxReply\x12\x0f\n\x07message\x18\x01 \x01(\t\"\x0f\n\rStatusRequest\"\x9a\x08\n\x0bStatusReply\x12)\n\x04node\x18\x01 \x01(\x0b\x32\x1b.block_api.StatusReply.Node\x12)\n\x04meta\x18\x02 \x01(\x0b\x32\x1b.block_api.StatusReply.Meta\x12/\n\x07storage\x18\x03 \x01(\x0b\x32\x1e.block_api.StatusReply.Storage\x12\'\n\x03\x63pu\x18\x04 \x01(\x0b\x32\x1a.block_api.StatusReply.Cpu\x12-\n\x06memory\x18\x05 \x01(\x0b\x32\x1d.block_api.StatusReply.Memory\x12%\n\x02la\x18\x06 \x01(\x0b\x32\x19.block_api.StatusReply.LA\x12-\n\x06uptime\x18\x07 \x01(\x0b\x32\x1d.block_api.StatusReply.Uptime\x12\'\n\x03net\x18\x08 \x01(\x0b\x32\x1a.block_api.StatusReply.Net\x1a\xc0\x01\n\x04Node\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\x10\n\x08nodename\x18\x02 \x01(\t\x12\x0e\n\x06status\x18\x03 \x01(\t\x12\x0c\n\x04zone\x18\x04 \x01(\t\x12\x1c\n\x14rest_public_endpoint\x18\x05 \x01(\t\x12\x1e\n\x16rest_internal_endpoint\x18\x06 \x01(\t\x12\x1c\n\x14grpc_public_endpoint\x18\x07 \x01(\t\x12\x1e\n\x16grpc_internal_endpoint\x18\x08 \x01(\t\x1a\x17\n\x04Meta\x12\x0f\n\x07\x64\x62_size\x18\x01 \x01(\x04\x1a\x7f\n\x07Storage\x12\x0f\n\x07objects\x18\x01 \x01(\x04\x12\x10\n\x08gc_bytes\x18\x02 \x01(\x04\x12\x12\n\nmove_bytes\x18\x03 \x01(\x04\x12\x12\n\ninit_bytes\x18\x04 \x01(\x04\x12\x13\n\x0b\x61vail_bytes\x18\x05 \x01(\x04\x12\x14\n\x0c\x61\x63tive_slots\x18\x06 \x01(\x04\x1a\x62\n\x03\x43pu\x12\x0c\n\x04user\x18\x01 \x01(\x02\x12\x0c\n\x04nice\x18\x02 \x01(\x02\x12\x0e\n\x06system\x18\x03 \x01(\x02\x12\x11\n\tinterrupt\x18\x04 \x01(\x02\x12\x0c\n\x04idle\x18\x05 \x01(\x02\x12\x0e\n\x06iowait\x18\x06 \x01(\x02\x1a%\n\x06Memory\x12\x0c\n\x04\x66ree\x18\x01 \x01(\x04\x12\r\n\x05total\x18\x02 \x01(\x04\x1a\x30\n\x02LA\x12\x0b\n\x03one\x18\x01 \x01(\x02\x12\x0c\n\x04\x66ive\x18\x02 \x01(\x02\x12\x0f\n\x07\x66ifteen\x18\x03 \x01(\x02\x1a$\n\x06Uptime\x12\x0c\n\x04host\x18\x01 \x01(\x04\x12\x0c\n\x04node\x18\x02 \x01(\x04\x1am\n\x03Net\x12\x12\n\ntcp_in_use\x18\x01 \x01(\x04\x12\x14\n\x0ctcp_orphaned\x18\x02 \x01(\x04\x12\x12\n\nudp_in_use\x18\x03 \x01(\x04\x12\x13\n\x0btcp6_in_use\x18\x04 \x01(\x04\x12\x13\n\x0budp6_in_use\x18\x05 \x01(\x04*M\n\x07HashFun\x12\t\n\x05OTHER\x10\x00\x12\x07\n\x03MD5\x10\x01\x12\n\n\x06SHA128\x10\x02\x12\n\n\x06SHA256\x10\x03\x12\n\n\x06HGW128\x10\x04\x12\n\n\x06HGW256\x10\x05\x32\xd8\x03\n\x08\x42lockApi\x12:\n\x06\x44\x65lete\x12\x18.block_api.DeleteRequest\x1a\x16.block_api.DeleteReply\x12:\n\x06\x41ppend\x12\x18.block_api.AppendRequest\x1a\x16.block_api.AppendReply\x12:\n\x06Upsert\x12\x18.block_api.UpsertRequest\x1a\x16.block_api.UpsertReply\x12:\n\x06Insert\x12\x18.block_api.InsertRequest\x1a\x16.block_api.InsertReply\x12\x31\n\x03Get\x12\x15.block_api.GetRequest\x1a\x13.block_api.GetReply\x12:\n\x06\x45xists\x12\x18.block_api.ExistsRequest\x1a\x16.block_api.ExistsReply\x12\x31\n\x03Idx\x12\x15.block_api.IdxRequest\x1a\x13.block_api.IdxReply\x12:\n\x06Status\x12\x18.block_api.StatusRequest\x1a\x16.block_api.StatusReplyB\x02H\x01\x62\x06proto3')
 )
 
 _HASHFUN = _descriptor.EnumDescriptor(
@@ -57,8 +57,8 @@ _HASHFUN = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=2375,
-  serialized_end=2452,
+  serialized_start=2389,
+  serialized_end=2466,
 )
 _sym_db.RegisterEnumDescriptor(_HASHFUN)
 
@@ -840,50 +840,57 @@ _STATUSREPLY_NODE = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='nodename', full_name='block_api.StatusReply.Node.nodename', index=0,
+      name='role', full_name='block_api.StatusReply.Node.role', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='status', full_name='block_api.StatusReply.Node.status', index=1,
+      name='nodename', full_name='block_api.StatusReply.Node.nodename', index=1,
       number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='zone', full_name='block_api.StatusReply.Node.zone', index=2,
+      name='status', full_name='block_api.StatusReply.Node.status', index=2,
       number=3, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='rest_public_endpoint', full_name='block_api.StatusReply.Node.rest_public_endpoint', index=3,
+      name='zone', full_name='block_api.StatusReply.Node.zone', index=3,
       number=4, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='rest_internal_endpoint', full_name='block_api.StatusReply.Node.rest_internal_endpoint', index=4,
+      name='rest_public_endpoint', full_name='block_api.StatusReply.Node.rest_public_endpoint', index=4,
       number=5, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='grpc_public_endpoint', full_name='block_api.StatusReply.Node.grpc_public_endpoint', index=5,
+      name='rest_internal_endpoint', full_name='block_api.StatusReply.Node.rest_internal_endpoint', index=5,
       number=6, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='grpc_internal_endpoint', full_name='block_api.StatusReply.Node.grpc_internal_endpoint', index=6,
+      name='grpc_public_endpoint', full_name='block_api.StatusReply.Node.grpc_public_endpoint', index=6,
       number=7, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='grpc_internal_endpoint', full_name='block_api.StatusReply.Node.grpc_internal_endpoint', index=7,
+      number=8, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -901,7 +908,7 @@ _STATUSREPLY_NODE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=1703,
-  serialized_end=1881,
+  serialized_end=1895,
 )
 
 _STATUSREPLY_META = _descriptor.Descriptor(
@@ -930,8 +937,8 @@ _STATUSREPLY_META = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1883,
-  serialized_end=1906,
+  serialized_start=1897,
+  serialized_end=1920,
 )
 
 _STATUSREPLY_STORAGE = _descriptor.Descriptor(
@@ -995,8 +1002,8 @@ _STATUSREPLY_STORAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1908,
-  serialized_end=2035,
+  serialized_start=1922,
+  serialized_end=2049,
 )
 
 _STATUSREPLY_CPU = _descriptor.Descriptor(
@@ -1060,8 +1067,8 @@ _STATUSREPLY_CPU = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2037,
-  serialized_end=2135,
+  serialized_start=2051,
+  serialized_end=2149,
 )
 
 _STATUSREPLY_MEMORY = _descriptor.Descriptor(
@@ -1097,8 +1104,8 @@ _STATUSREPLY_MEMORY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2137,
-  serialized_end=2174,
+  serialized_start=2151,
+  serialized_end=2188,
 )
 
 _STATUSREPLY_LA = _descriptor.Descriptor(
@@ -1141,8 +1148,8 @@ _STATUSREPLY_LA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2176,
-  serialized_end=2224,
+  serialized_start=2190,
+  serialized_end=2238,
 )
 
 _STATUSREPLY_UPTIME = _descriptor.Descriptor(
@@ -1178,8 +1185,8 @@ _STATUSREPLY_UPTIME = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2226,
-  serialized_end=2262,
+  serialized_start=2240,
+  serialized_end=2276,
 )
 
 _STATUSREPLY_NET = _descriptor.Descriptor(
@@ -1236,8 +1243,8 @@ _STATUSREPLY_NET = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2264,
-  serialized_end=2373,
+  serialized_start=2278,
+  serialized_end=2387,
 )
 
 _STATUSREPLY = _descriptor.Descriptor(
@@ -1316,7 +1323,7 @@ _STATUSREPLY = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=1337,
-  serialized_end=2373,
+  serialized_end=2387,
 )
 
 _META.fields_by_name['hash_fun'].enum_type = _HASHFUN
@@ -1574,8 +1581,8 @@ _BLOCKAPI = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=2455,
-  serialized_end=2927,
+  serialized_start=2469,
+  serialized_end=2941,
   methods=[
   _descriptor.MethodDescriptor(
     name='Delete',
