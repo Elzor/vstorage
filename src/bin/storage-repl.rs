@@ -1,4 +1,8 @@
+#[macro_use]
+extern crate clap;
+
 use clap::{crate_authors, crate_version, crate_name, App, Arg};
+
 extern crate dirs;
 
 use std::borrow::Cow::{self, Owned};
@@ -13,6 +17,13 @@ use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
 use rustyline::hint::{Hinter, HistoryHinter};
 use vstorage::binutil;
+
+use block_api::block_api_client::BlockApiClient;
+use block_api::{IdxRequest, StatusRequest};
+
+pub mod block_api {
+    tonic::include_proto!("block_api");
+}
 
 const APP_NAME: &str = "block_ctl";
 
@@ -83,13 +94,14 @@ impl Helper for CtlHelper {}
 
 fn show_welcome() {
     println!(
-        "{} block-ctl / v{}\n\nVshell (abort with ^C or ^D)",
+        "{}-ctl / v{}\n\nVshell (abort with ^C or ^D)",
         crate_name!(),
         crate_version!()
     )
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     if let Err(e) = init() {
         panic!("init phase failed: {}", e.to_string());
     }
@@ -98,7 +110,7 @@ fn main() {
 
     let default_block_server_config = vstorage::config::Config::default();
     let matches = App::new(APP_NAME)
-        .about("Block storage CLI. Powered by Vonmo")
+        .about("Storage common CLI. Powered by Vonmo")
         .author(crate_authors!())
         .version(crate_version!())
         .long_version(binutil::vm_version_info().as_ref())
@@ -117,7 +129,88 @@ fn main() {
         .ok_or(default_block_server_config.interfaces.grpc_internal.as_str())
         .unwrap().to_string();
 
-    println!("connect to {}", endpoint);
+    let mut client = match BlockApiClient::connect(format!("http://{}", endpoint)).await {
+        Ok(client) => client,
+        Err(e) => {
+            println!("connection error: {}", e);
+            process::exit(1)
+        }
+    };
+    println!("connected to {}", endpoint);
+
+    match client.idx(tonic::Request::new(IdxRequest {})).await {
+        Ok(res) => {
+            if res.into_inner().message.eq("") {
+                println!("init error: wrong idx response");
+                process::exit(1)
+            }
+        }
+        Err(e) => {
+            println!("init error: {}", e);
+            process::exit(1)
+        }
+    }
+
+    let cli_matches = match client.status(tonic::Request::new(StatusRequest {})).await {
+        Ok(res) => {
+            let role =  res.into_inner().node.unwrap().role;
+            if role.eq("") {
+                println!("init error: wrong node.role");
+                process::exit(1)
+            }
+            match role.to_lowercase().as_str() {
+                "storage" => {
+                    clap_app!(storage =>
+                        (version: "1.0")
+                        (about: "Storage CLI")
+                        (@arg debug: -d ... "Sets the level of debugging information")
+                        (@subcommand status =>
+                            (version: "1.0")
+                            (about: "Shows all information about storage node")
+                        )
+                        (@subcommand uptime =>
+                            (version: "1.0")
+                            (about: "Prints host and node uptime")
+                            (@arg node: -n --node "Print node uptime")
+                            (@arg host: -h --host "Print host uptime")
+                        )
+                    )
+                }
+                "meta" => {
+                    clap_app!(meta =>
+                        (version: "1.0")
+                        (about: "meta cli")
+                        (@arg debug: -d ... "Sets the level of debugging information")
+                        (@subcommand uptime =>
+                            (about: "host and node uptime")
+                            (@arg node: -n --node "Print node uptime")
+                            (@arg host: -h --host "Print host uptime")
+                        )
+                    )
+                }
+                "gate" => {
+                    clap_app!(meta =>
+                        (version: "1.0")
+                        (about: "gateway cli")
+                        (@arg debug: -d ... "Sets the level of debugging information")
+                        (@subcommand uptime =>
+                            (about: "host and node uptime")
+                            (@arg node: -n --node "Print node uptime")
+                            (@arg host: -h --host "Print host uptime")
+                        )
+                    )
+                }
+                other => {
+                    println!("error: unknown node.role {}", other);
+                    process::exit(1)
+                }
+            }
+        }
+        Err(e) => {
+            println!("init error: {}", e);
+            process::exit(1)
+        }
+    };
 
     let config = Config::builder()
         .history_ignore_space(true)
@@ -172,7 +265,35 @@ fn main() {
                     if line.to_string().trim().eq("") {
                         continue;
                     }
-                    println!("line: {}", line.to_string());
+                    let cli_cmds = cli_matches.clone();
+                    line = line.to_string().to_lowercase().trim().to_string();
+                    let args: Vec<&str> = line.split(" ").collect();
+                    let cmd = cli_cmds.get_matches_from_safe(args);
+                    match cmd {
+                        Ok(cmd) => {
+                            match cmd.subcommand {
+                                Some(subcmd) => {
+                                    dbg!(subcmd);
+                                }
+                                _ => {
+                                    println!("unknown command")
+                                }
+                            }
+                        }
+                        Err(why) => {
+                            match why.kind {
+                                clap::ErrorKind::HelpDisplayed
+                                | clap::ErrorKind::VersionDisplayed
+                                | clap::ErrorKind::UnknownArgument => {
+                                    println!("{}", why.message);
+                                }
+                                _any => {
+                                    dbg!(&why);
+                                    println!("{}", why.message);
+                                }
+                            }
+                        }
+                    }
                 }
             }
             break;

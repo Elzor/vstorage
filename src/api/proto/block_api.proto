@@ -128,13 +128,14 @@ message StatusRequest {
 
 message StatusReply {
     message Node {
-        string nodename = 1;
-        string status = 2;
-        string zone = 3;
-        string rest_public_endpoint = 4;
-        string rest_internal_endpoint = 5;
-        string grpc_public_endpoint = 6;
-        string grpc_internal_endpoint = 7;
+        string role = 1;
+        string nodename = 2;
+        string status = 3;
+        string zone = 4;
+        string rest_public_endpoint = 5;
+        string rest_internal_endpoint = 6;
+        string grpc_public_endpoint = 7;
+        string grpc_internal_endpoint = 8;
     }
     message Meta {
         uint64 db_size = 1;

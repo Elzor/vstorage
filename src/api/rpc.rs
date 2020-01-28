@@ -17,12 +17,11 @@ use block_api::{DeleteReply, DeleteRequest};
 use block_api::block_api_server::{BlockApi, BlockApiServer};
 
 use crate::config::Config;
+use crate::metrics::{GRPC_BYTES_IN, GRPC_BYTES_OUT, GRPC_COUNTER, GRPC_REQ_HISTOGRAM};
 use crate::stora::disk::{DISK, mark_block_as_deleted, read_block};
 use crate::stora::meta::BlockMeta;
 use crate::stora::meta::HashFun::{Hgw128, Hgw256, Md5, Other, Sha128, Sha256};
 use crate::stora::status::Status as SysStatus;
-
-use crate::metrics::{GRPC_BYTES_IN, GRPC_BYTES_OUT, GRPC_COUNTER, GRPC_REQ_HISTOGRAM};
 
 lazy_static! {
     pub static ref CONFIG: RwLock<Option<Config>> = RwLock::new(None);
@@ -432,6 +431,7 @@ impl BlockApi for MyBlockApi {
         let status = SysStatus::new();
         let reply = StatusReply {
             node: Some(status_reply::Node {
+                role: "storage".to_string(),
                 nodename: status.node.nodename,
                 status: status.node.status,
                 zone: status.node.zone,

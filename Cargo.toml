@@ -1,9 +1,12 @@
 [package]
 name = "vstorage"
 version = "0.1.0"
-authors = ["Maxim Molchanov <m.molchanov@vonmo.com>"]
+authors = [
+    "Maxim Molchanov <m.molchanov@vonmo.com>"
+]
 edition = "2018"
 publish = false
+
 
 [dependencies]
 vm_util = { path = "components/vm_util" }
@@ -43,7 +46,7 @@ tonic-build = {git = "https://github.com/hyperium/tonic", branch="master"}
 name = "block-server"
 
 [[bin]]
-name = "block-ctl"
+name = "storage-repl"
 
 [profile.dev]
 rpath = true
