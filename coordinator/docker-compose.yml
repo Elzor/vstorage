@@ -1,0 +1,25 @@
+version: '3.2'
+services:
+
+  coord1:
+    container_name: c1.vstorage.test
+    image: tarantool/tarantool:2.3
+    volumes:
+      - ./app/:/opt/vstorage/block_coordinator
+    command: tarantool /opt/vstorage/block_coordinator/app.lua
+    environment:
+      - TARANTOOL_USER_NAME=dev
+      - TARANTOOL_USER_PASSWORD=dev
+    expose:
+      - 3301
+      - 8800
+    ports:
+      - 8800:8800
+    networks:
+      - lan
+
+networks:
+  lan:
+    driver: bridge
+  wan:
+    driver: bridge

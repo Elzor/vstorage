@@ -182,6 +182,12 @@ async fn block_api(req: Request<Body>) -> Result<Response<Body>, Infallible> {
             res
         }
         // -----------------------------------------------------------------------------------------
+        (&Method::GET, _, "/ping") | (&Method::HEAD, _, "/ping") => {
+            let res = Ok(Response::new(Body::from("ok")));
+            timer.observe_duration();
+            res
+        }
+        // -----------------------------------------------------------------------------------------
         (&Method::GET, ("status", 1), _) => match serde_json::to_string(&Status::new()) {
             Ok(status) => {
                 HTTP_BYTES_OUT.inc_by(status.len() as f64);

@@ -1,7 +1,7 @@
 use std::process;
 
 use clap::{crate_authors, crate_version, App, Arg};
-use log::info;
+use log::{info, error};
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::mpsc::channel;
 
@@ -10,6 +10,8 @@ use vstorage::api::rpc::BlockGrpcApi;
 use vstorage::binutil::{self, cli_opts, setup};
 use vstorage::config::Config;
 use vstorage::stora::status::PhysStats;
+use vstorage::cluster::CLUSTER;
+use vstorage::cluster::coordinator_api;
 
 #[tokio::main]
 async fn main() {
@@ -64,33 +66,70 @@ async fn main() {
     vstorage::stora::gc::process(config.storage.gc_batch, config.storage.gc_timeout_sec);
     vstorage::stora::validator::process(config.storage.block_check_interval_days, 300);
 
+    //init cluster
+    if config.cluster.enabled {
+        if config.cluster.coordinators.len() == 0 {
+            error!("cluster mode enabled but coordinators weren't set");
+            process::exit(1);
+        }
+        for e in config.cluster.coordinators {
+            let _ = CLUSTER.write().unwrap().add_coordinator(e);
+        }
+        let _ = vstorage::cluster::health_check();
+        loop {
+            match CLUSTER.read().unwrap().get_coordinator() {
+                Ok(mut coordinator) => {
+                    let pong = coordinator.ping().await.unwrap_or(false);
+                    if pong {
+                        let registred = coordinator.register(coordinator_api::Server{
+                            endpoint: config.interfaces.rest.lan.clone(),
+                            nodename: config.node.nodename.clone(),
+                            zone: config.node.zone.clone(),
+                            rack: config.node.rack.clone(),
+                        }).await.unwrap_or(false);
+                        if registred {
+                            break;
+                        }else{
+                            error!("cluster: can't register");
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                        }
+                    }
+                }
+                _ => {
+                    error!("cluster: can't register. No coordinators");
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
+            }
+        }
+    }
+
     // internal handlers
-    let rest_internal_endpoint = config.interfaces.rest_internal.to_string();
+    let rest_lan_endpoint = config.interfaces.rest.lan;
     let (txi, mut rxi) = channel(1);
-    if !rest_internal_endpoint.eq("") {
-        BlockRestApi::new(&rest_internal_endpoint, &"internal".to_string())
+    if !rest_lan_endpoint.eq("") {
+        BlockRestApi::new(&rest_lan_endpoint, &"internal".to_string())
             .set_status_channel(txi)
             .serve();
     }
 
-    let grpc_internal_endpoint = config.interfaces.grpc_internal.to_string();
-    if !grpc_internal_endpoint.eq("") {
-        BlockGrpcApi::new(&grpc_internal_endpoint, &"internal".to_string())
+    let grpc_lan_endpoint = config.interfaces.grpc.lan;
+    if !grpc_lan_endpoint.eq("") {
+        BlockGrpcApi::new(&grpc_lan_endpoint, &"internal".to_string())
             .serve();
     }
 
     // public handlers
-    let rest_public_endpoint = config.interfaces.rest_public.to_string();
+    let rest_wan_endpoint = config.interfaces.rest.wan;
     let (txp, mut rxp) = channel(1);
-    if !rest_public_endpoint.eq("") {
-        BlockRestApi::new(&rest_public_endpoint, &"public".to_string())
+    if !rest_wan_endpoint.eq("") {
+        BlockRestApi::new(&rest_wan_endpoint, &"public".to_string())
             .set_status_channel(txp)
             .serve();
     }
 
-    let grpc_public_endpoint = config.interfaces.grpc_public.to_string();
-    if !grpc_public_endpoint.eq("") {
-        BlockGrpcApi::new(&grpc_public_endpoint, &"public".to_string())
+    let grpc_wan_endpoint = config.interfaces.grpc.wan;
+    if !grpc_wan_endpoint.eq("") {
+        BlockGrpcApi::new(&grpc_wan_endpoint, &"public".to_string())
             .serve();
     }
 
@@ -115,10 +154,10 @@ async fn main() {
         stream_interrupt.recv().await;
         info!("pid {} got INT signal", process::id());
         info!("wait to http graceful shutdown");
-        if !rest_internal_endpoint.eq("") {
+        if !rest_lan_endpoint.eq("") {
             rxi.recv().await;
         }
-        if !rest_public_endpoint.eq("") {
+        if !rest_wan_endpoint.eq("") {
             rxp.recv().await;
         }
         info!("exit with 130");

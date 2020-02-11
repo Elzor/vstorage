@@ -68,10 +68,10 @@ pub struct NodeStatus {
     pub nodename: String,
     pub status: String,
     pub zone: String,
-    pub rest_internal_endpoint: String,
-    pub rest_public_endpoint: String,
-    pub grpc_internal_endpoint: String,
-    pub grpc_public_endpoint: String,
+    pub rest_lan_endpoint: String,
+    pub rest_wan_endpoint: String,
+    pub grpc_lan_endpoint: String,
+    pub grpc_wan_endpoint: String,
 }
 
 impl NodeStatus {
@@ -81,10 +81,10 @@ impl NodeStatus {
             nodename: cfg.node.nodename,
             status: STATUS.read().unwrap().to_string(),
             zone: cfg.node.zone,
-            rest_public_endpoint: cfg.interfaces.rest_public,
-            rest_internal_endpoint: cfg.interfaces.rest_internal,
-            grpc_public_endpoint: cfg.interfaces.grpc_public,
-            grpc_internal_endpoint: cfg.interfaces.grpc_internal,
+            rest_wan_endpoint: cfg.interfaces.rest.wan,
+            rest_lan_endpoint: cfg.interfaces.rest.lan,
+            grpc_wan_endpoint: cfg.interfaces.grpc.wan,
+            grpc_lan_endpoint: cfg.interfaces.grpc.lan,
         }
     }
 }

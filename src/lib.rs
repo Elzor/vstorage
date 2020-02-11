@@ -19,3 +19,4 @@ pub mod binutil;
 pub mod config;
 pub mod metrics;
 pub mod stora;
+pub mod cluster;

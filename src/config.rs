@@ -13,6 +13,7 @@ use serde_json::{Map, Value};
 pub struct Config {
     pub node: Node,
     pub interfaces: Interfaces,
+    pub cluster: Cluster,
     pub db: Db,
     pub storage: Storage,
 }
@@ -96,9 +97,9 @@ impl Default for Storage {
 pub struct Node {
     pub nodename: String,
     pub zone: String,
+    pub rack: String,
     pub work_dir: String,
     pub pid_file: String,
-    pub ctl_socket_file: String,
     pub logger_config: String,
     pub opts: Map<String, Value>,
 }
@@ -116,9 +117,9 @@ impl Default for Node {
         Node {
             nodename: "dev1".to_string(),
             zone: "default".to_string(),
+            rack: "rack1".to_string(),
             work_dir: "./info/temp".to_string(),
             pid_file: "/tmp/sblock_server.pid".to_string(),
-            ctl_socket_file: "/tmp/sblock_ctl.sock".to_string(),
             logger_config: "sblock_logger.yml".to_string(),
             opts: Node::default_node_opts(),
         }
@@ -127,20 +128,29 @@ impl Default for Node {
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "kebab-case")]
+pub struct Interface {
+    pub lan: String,
+    pub wan: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "kebab-case")]
 pub struct Interfaces {
-    pub rest_internal: String,
-    pub rest_public: String,
-    pub grpc_internal: String,
-    pub grpc_public: String,
+    pub rest: Interface,
+    pub grpc: Interface,
 }
 
 impl Default for Interfaces {
     fn default() -> Interfaces {
         Interfaces {
-            rest_public: "[::1]:33088".to_string(),
-            rest_internal: "[::1]:33087".to_string(),
-            grpc_public: "[::1]:33086".to_string(),
-            grpc_internal: "[::1]:33085".to_string(),
+            rest: Interface{
+                wan: "[::1]:33088".to_string(),
+                lan: "[::1]:33087".to_string(),
+            },
+            grpc: Interface {
+                wan: "[::1]:33086".to_string(),
+                lan: "[::1]:33085".to_string(),
+            },
         }
     }
 }
@@ -159,6 +169,22 @@ impl Default for Db {
             meta_db_path: "./info/meta".to_string(),
             meta_db_backup_path: "./info/meta_backup".to_string(),
             size_calculation_interval_min: 60,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "kebab-case")]
+pub struct Cluster {
+    pub enabled: bool,
+    pub coordinators: Vec<String>,
+}
+
+impl Default for Cluster {
+    fn default() -> Cluster {
+        Cluster {
+            enabled: true,
+            coordinators: vec!["[::1]:8800".to_string()],
         }
     }
 }
