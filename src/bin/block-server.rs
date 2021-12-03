@@ -86,6 +86,7 @@ async fn main() {
                             nodename: config.node.nodename.clone(),
                             zone: config.node.zone.clone(),
                             rack: config.node.rack.clone(),
+                            srv_type: "storage".to_string(),
                         }).await.unwrap_or(false);
                         if registred {
                             break;

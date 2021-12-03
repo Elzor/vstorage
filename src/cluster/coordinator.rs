@@ -59,7 +59,7 @@ impl Coordinator {
     }
 
     pub async fn register(&mut self, server: coordinator_api::Server) -> Result<bool> {
-        let req = coordinator_api::ServerRegistrationRequest {server};
+        let req = coordinator_api::ServerRegistrationRequest {server: server.to_owned()};
         let registred: coordinator_api::ServerRegistrationResponse =
             self.post(&req).await?;
         dbg!(registred);
@@ -70,7 +70,7 @@ impl Coordinator {
     async fn get<U, T>(&mut self, params: U) -> Result<T> where
         T: serde::de::DeserializeOwned + coordinator_api::RestPath<U> {
         let client = Client::new();
-        let t_path = T::get_path(params)?;
+        let t_path = T::get_path(&params)?;
         let uri = format!("{}{}", self.endpoint, t_path);
         let res = client.get(uri.parse().unwrap()).await?;
         let body = hyper::body::aggregate(res).await?;
@@ -79,14 +79,14 @@ impl Coordinator {
     }
 
     async fn post<U, T>(&mut self, params: &U) -> Result<T> where
-        T: serde::de::DeserializeOwned + coordinator_api::RestPath<U>, U: serde::Serialize + Copy {
+        T: serde::de::DeserializeOwned + coordinator_api::RestPath<U>, U: serde::Serialize + Clone {
         let client = Client::new();
-        let t_path = T::get_path(*params)?;
+        let t_path = T::get_path(params)?;
         let uri = format!("{}{}", self.endpoint, t_path);
         let req = Request::builder()
             .method("POST")
             .uri(uri)
-            .body(Body::from(serde_json::to_string(&params)?))
+            .body(Body::from(serde_json::to_string(params)?))
             .expect("request built");
         let res = client.request(req).await?;
         let body = hyper::body::aggregate(res).await?;
